@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+logs/
+.pytest_cache/
+assets/usd_cache/

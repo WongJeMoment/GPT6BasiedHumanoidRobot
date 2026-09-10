@@ -1,0 +1,102 @@
+{
+  "repository": "https://github.com/mikedh/trimesh",
+  "commit": "fcf660feb0a14c68fd3945789e8ed77e260f9167",
+  "models": [
+    {
+      "file": "teapot.stl",
+      "url": "https://raw.githubusercontent.com/mikedh/trimesh/fcf660feb0a14c68fd3945789e8ed77e260f9167/models/teapot.stl",
+      "sha256": "2c0c36eba0f33d0f10429e9f7e06bf34fa3df0bc9ee1082fd32eb89cd483e9b6",
+      "bytes": 44784,
+      "triangles": 894,
+      "original_extents": [
+        63.16970443725586,
+        39.308353424072266,
+        29.48130440711975
+      ]
+    },
+    {
+      "file": "torus.stl",
+      "url": "https://raw.githubusercontent.com/mikedh/trimesh/fcf660feb0a14c68fd3945789e8ed77e260f9167/models/torus.STL",
+      "sha256": "91441a7f60479bda93c59dd88134da3b4f33d1df71729fe71e1b2ae989974da3",
+      "bytes": 435084,
+      "triangles": 8700,
+      "original_extents": [
+        2.9990222454071045,
+        2.9995110034942627,
+        0.9980267882347107
+      ]
+    },
+    {
+      "file": "angle_block.stl",
+      "url": "https://raw.githubusercontent.com/mikedh/trimesh/fcf660feb0a14c68fd3945789e8ed77e260f9167/models/angle_block.STL",
+      "sha256": "512bf110ef9f181e33b1006467a0637f3a0ae2c89e02bca943526a574440c4c9",
+      "bytes": 35284,
+      "triangles": 704,
+      "original_extents": [
+        1.3385827541351318,
+        1.0,
+        1.3519835472106934
+      ]
+    },
+    {
+      "file": "plate_holes.stl",
+      "url": "https://raw.githubusercontent.com/mikedh/trimesh/fcf660feb0a14c68fd3945789e8ed77e260f9167/models/plate_holes.STL",
+      "sha256": "318f92206dd20b2cede5b70eb5e686d3627c6b157b91e9ed383314329dcff209",
+      "bytes": 62684,
+      "triangles": 1252,
+      "original_extents": [
+        203.1999969482422,
+        304.8000183105469,
+        12.699999809265137
+      ]
+    },
+    {
+      "file": "featuretype.stl",
+      "url": "https://raw.githubusercontent.com/mikedh/trimesh/fcf660feb0a14c68fd3945789e8ed77e260f9167/models/featuretype.STL",
+      "sha256": "c9946c4bb8034cd43522526a2f325200e2d2322a0c7258f848a81f00e418dab3",
+      "bytes": 173884,
+      "triangles": 3476,
+      "original_extents": [
+        5.0,
+        2.5,
+        1.375
+      ]
+    },
+    {
+      "file": "octagonal_pocket.stl",
+      "url": "https://raw.githubusercontent.com/mikedh/trimesh/fcf660feb0a14c68fd3945789e8ed77e260f9167/models/octagonal_pocket.stl",
+      "sha256": "5dcb9243f154cdd2bb50842bc7bee8bd38dad6c8033aa4399a0d231211c6947e",
+      "bytes": 163184,
+      "triangles": 3262,
+      "original_extents": [
+        0.22859999537467993,
+        0.16471461951732635,
+        0.01587500050663948
+      ]
+    },
+    {
+      "file": "20mm-xyz-cube.stl",
+      "url": "https://raw.githubusercontent.com/mikedh/trimesh/fcf660feb0a14c68fd3945789e8ed77e260f9167/models/20mm-xyz-cube.stl",
+      "sha256": "22605742d8305430f1d803fc74cbe222333a9a6903339572171cd6b8b16c4d6c",
+      "bytes": 13084,
+      "triangles": 260,
+      "original_extents": [
+        20.000001907348633,
+        20.0,
+        20.0
+      ]
+    },
+    {
+      "file": "cylinder.stl",
+      "url": "https://raw.githubusercontent.com/mikedh/trimesh/fcf660feb0a14c68fd3945789e8ed77e260f9167/models/cylinder.stl",
+      "sha256": "64cc6af4c1c52ed281313f7eef03bd79cfb75b954912e646391e6564d7f592fa",
+      "bytes": 20884,
+      "triangles": 416,
+      "original_extents": [
+        2.0,
+        2.0,
+        8.0
+      ]
+    }
+  ]
+}
