@@ -36,7 +36,8 @@ class ResidualRLTests(unittest.TestCase):
         for key in a:
             torch.testing.assert_close(a[key], b[key])
         self.assertEqual(torch.bincount(a["object"]).tolist(), [4, 4, 4])
-        self.assertTrue(((a["speed"] >= 4) & (a["speed"] <= 5)).all())
+        for key, bounds in (("speed", CONFIG.speed_range), ("target_lateral", CONFIG.target_lateral_range)):
+            self.assertTrue(((a[key] >= bounds[0]) & (a[key] <= bounds[1])).all())
         self.assertFalse(torch.equal(a["speed"], launch_dataset(CONFIG, 12, 2027)["speed"]))
 
 

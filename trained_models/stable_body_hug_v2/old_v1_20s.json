@@ -1,0 +1,1313 @@
+{
+  "policy": {
+    "episodes": 96,
+    "seed": 2035,
+    "successes": 71,
+    "success_rate": 0.7395833333333334,
+    "settings": {
+      "active_legs": false,
+      "residual_rl": true,
+      "controller": "hierarchical",
+      "catch_control": {
+        "intercept_x": 0.36,
+        "horizon": 0.65,
+        "absorb_seconds": 0.18,
+        "hold_seconds": 0.4,
+        "recover_seconds": 0.5,
+        "contact_force": 0.25,
+        "chest_surface_x": 0.075,
+        "chest_height": 0.28,
+        "hug_pressure": 0.012,
+        "forearm_weight": 0.5,
+        "max_draw_in": 0.1,
+        "draw_in_speed": 0.3,
+        "hold_speed": 0.65,
+        "ik_damping": 0.08,
+        "joint_speed": 5.0,
+        "residual_scale": 0.2,
+        "support_shift_gain": 1.8,
+        "upright_tilt_gain": 0.8
+      },
+      "num_envs": 96,
+      "env_spacing": 8.0,
+      "episode_seconds": 20.0,
+      "physics_dt": 0.008333333333333333,
+      "decimation": 2,
+      "speed_range": [
+        4.0,
+        5.0
+      ],
+      "distance_range": [
+        1.0,
+        1.4
+      ],
+      "launch_height_range": [
+        1.05,
+        1.2
+      ],
+      "azimuth_range": [
+        -0.12,
+        0.12
+      ],
+      "target_height": 1.0,
+      "interval_range": [
+        2.5,
+        4.0
+      ],
+      "first_throw_delay": 0.5,
+      "continuous": false,
+      "action_scale": 0.25,
+      "minimum_base_height": 0.4,
+      "upright_reward": 2.0,
+      "posture_penalty": 0.2,
+      "action_penalty": 0.01,
+      "velocity_penalty": 0.05,
+      "fall_penalty": 10.0,
+      "hand_color": [
+        0.015,
+        0.015,
+        0.015
+      ],
+      "hand_roughness": 0.75,
+      "robot_usd": null,
+      "objects": [
+        {
+          "name": "ball",
+          "shape": "sphere",
+          "size": [
+            0.2
+          ],
+          "mass": 0.5,
+          "color": [
+            0.85,
+            0.18,
+            0.12
+          ],
+          "mesh_path": null
+        },
+        {
+          "name": "box",
+          "shape": "cuboid",
+          "size": [
+            0.35,
+            0.35,
+            0.3
+          ],
+          "mass": 0.7,
+          "color": [
+            0.12,
+            0.4,
+            0.85
+          ],
+          "mesh_path": null
+        },
+        {
+          "name": "can",
+          "shape": "cylinder",
+          "size": [
+            0.16,
+            0.4
+          ],
+          "mass": 0.6,
+          "color": [
+            0.95,
+            0.65,
+            0.12
+          ],
+          "mesh_path": null
+        }
+      ]
+    },
+    "falls": 96,
+    "catch_and_survive": 0,
+    "stable_catches": 0,
+    "mean_leg_joint_excursion_rad": 0.6521682403981686,
+    "held_one_second": 42,
+    "by_object": {
+      "ball": {
+        "episodes": 32,
+        "successes": 31
+      },
+      "box": {
+        "episodes": 32,
+        "successes": 12
+      },
+      "can": {
+        "episodes": 32,
+        "successes": 28
+      }
+    },
+    "results": [
+      {
+        "episode": 0,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5999999046325684,
+        "max_hold_seconds": 0.6833333373069763,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6407399773597717
+      },
+      {
+        "episode": 1,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.8333332538604736,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.7241851091384888
+      },
+      {
+        "episode": 2,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5,
+        "max_hold_seconds": 1.233332872390747,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6649479866027832
+      },
+      {
+        "episode": 3,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.549999952316284,
+        "max_hold_seconds": 1.2499995231628418,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6670714020729065
+      },
+      {
+        "episode": 4,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.7333333492279053,
+        "max_hold_seconds": 0.7499999403953552,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6727520227432251
+      },
+      {
+        "episode": 5,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.75,
+        "max_hold_seconds": 1.183332920074463,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6635128259658813
+      },
+      {
+        "episode": 6,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.633333444595337,
+        "max_hold_seconds": 0.699999988079071,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6378517746925354
+      },
+      {
+        "episode": 7,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.8333332538604736,
+        "max_hold_seconds": 0.03333333507180214,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6437039971351624
+      },
+      {
+        "episode": 8,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.7333333492279053,
+        "max_hold_seconds": 0.9333330988883972,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6403604745864868
+      },
+      {
+        "episode": 9,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5,
+        "max_hold_seconds": 1.2666661739349365,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6524744033813477
+      },
+      {
+        "episode": 10,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.633333444595337,
+        "max_hold_seconds": 0.9999997019767761,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6367710828781128
+      },
+      {
+        "episode": 11,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.6500000953674316,
+        "max_hold_seconds": 1.299999475479126,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6609100699424744
+      },
+      {
+        "episode": 12,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5166666507720947,
+        "max_hold_seconds": 1.2499995231628418,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6319115161895752
+      },
+      {
+        "episode": 13,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5999999046325684,
+        "max_hold_seconds": 0.7166666388511658,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6808795928955078
+      },
+      {
+        "episode": 14,
+        "object": 2,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.933333396911621,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.682283341884613
+      },
+      {
+        "episode": 15,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.566666603088379,
+        "max_hold_seconds": 0.8666664958000183,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6641808748245239
+      },
+      {
+        "episode": 16,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.700000047683716,
+        "max_hold_seconds": 0.5500001311302185,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6414563655853271
+      },
+      {
+        "episode": 17,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.7333333492279053,
+        "max_hold_seconds": 1.0333330631256104,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6486823558807373
+      },
+      {
+        "episode": 18,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.549999952316284,
+        "max_hold_seconds": 1.2499995231628418,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.658304750919342
+      },
+      {
+        "episode": 19,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.883333444595337,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.708670973777771
+      },
+      {
+        "episode": 20,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.683333396911621,
+        "max_hold_seconds": 1.0666663646697998,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6622300148010254
+      },
+      {
+        "episode": 21,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5833332538604736,
+        "max_hold_seconds": 1.0166664123535156,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6562260985374451
+      },
+      {
+        "episode": 22,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.8499999046325684,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.7201420664787292
+      },
+      {
+        "episode": 23,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5,
+        "max_hold_seconds": 1.1999995708465576,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6549497246742249
+      },
+      {
+        "episode": 24,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5166666507720947,
+        "max_hold_seconds": 1.2499995231628418,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6591973304748535
+      },
+      {
+        "episode": 25,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.700000047683716,
+        "max_hold_seconds": 0.9999997019767761,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6558545827865601
+      },
+      {
+        "episode": 26,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.7166666984558105,
+        "max_hold_seconds": 0.9999997019767761,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6409670114517212
+      },
+      {
+        "episode": 27,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.549999952316284,
+        "max_hold_seconds": 1.0166664123535156,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6438799500465393
+      },
+      {
+        "episode": 28,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.700000047683716,
+        "max_hold_seconds": 0.9833330512046814,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6315392255783081
+      },
+      {
+        "episode": 29,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.633333444595337,
+        "max_hold_seconds": 1.3666660785675049,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6652092337608337
+      },
+      {
+        "episode": 30,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.566666603088379,
+        "max_hold_seconds": 0.9833330512046814,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6595482230186462
+      },
+      {
+        "episode": 31,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.799999952316284,
+        "max_hold_seconds": 0.3666667640209198,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6165323853492737
+      },
+      {
+        "episode": 32,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.633333444595337,
+        "max_hold_seconds": 1.0333330631256104,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6390780210494995
+      },
+      {
+        "episode": 33,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5,
+        "max_hold_seconds": 1.299999475479126,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6436207294464111
+      },
+      {
+        "episode": 34,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.566666603088379,
+        "max_hold_seconds": 0.15000000596046448,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.7456104755401611
+      },
+      {
+        "episode": 35,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.616666555404663,
+        "max_hold_seconds": 1.049999713897705,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6586265563964844
+      },
+      {
+        "episode": 36,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.6500000953674316,
+        "max_hold_seconds": 0.8333331942558289,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6462637782096863
+      },
+      {
+        "episode": 37,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.7666666507720947,
+        "max_hold_seconds": 0.05000000447034836,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6081438660621643
+      },
+      {
+        "episode": 38,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.4833333492279053,
+        "max_hold_seconds": 1.3833327293395996,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6549469232559204
+      },
+      {
+        "episode": 39,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.4666666984558105,
+        "max_hold_seconds": 1.0666663646697998,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6177971363067627
+      },
+      {
+        "episode": 40,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.633333444595337,
+        "max_hold_seconds": 0.0833333358168602,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6140584349632263
+      },
+      {
+        "episode": 41,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.7333333492279053,
+        "max_hold_seconds": 0.76666659116745,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6390145421028137
+      },
+      {
+        "episode": 42,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.4666666984558105,
+        "max_hold_seconds": 1.116666316986084,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6633613109588623
+      },
+      {
+        "episode": 43,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.5166666507720947,
+        "max_hold_seconds": 0.06666667014360428,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.5960289239883423
+      },
+      {
+        "episode": 44,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5833332538604736,
+        "max_hold_seconds": 1.3666660785675049,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6676305532455444
+      },
+      {
+        "episode": 45,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5333333015441895,
+        "max_hold_seconds": 1.2666661739349365,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6509255170822144
+      },
+      {
+        "episode": 46,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 3.0166666507720947,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6841679215431213
+      },
+      {
+        "episode": 47,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.6666667461395264,
+        "max_hold_seconds": 0.9166664481163025,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6450005769729614
+      },
+      {
+        "episode": 48,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5999999046325684,
+        "max_hold_seconds": 0.8166665434837341,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6599245667457581
+      },
+      {
+        "episode": 49,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.566666603088379,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6082327961921692
+      },
+      {
+        "episode": 50,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.75,
+        "max_hold_seconds": 1.1333329677581787,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6714583039283752
+      },
+      {
+        "episode": 51,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5333333015441895,
+        "max_hold_seconds": 1.0666663646697998,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6362152099609375
+      },
+      {
+        "episode": 52,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.4833333492279053,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6608892679214478
+      },
+      {
+        "episode": 53,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.6666667461395264,
+        "max_hold_seconds": 1.299999475479126,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6340598464012146
+      },
+      {
+        "episode": 54,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5333333015441895,
+        "max_hold_seconds": 1.0666663646697998,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6134927868843079
+      },
+      {
+        "episode": 55,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.683333396911621,
+        "max_hold_seconds": 0.9999997019767761,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6388802528381348
+      },
+      {
+        "episode": 56,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5333333015441895,
+        "max_hold_seconds": 1.2833328247070312,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6569492816925049
+      },
+      {
+        "episode": 57,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.549999952316284,
+        "max_hold_seconds": 1.233332872390747,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6447978019714355
+      },
+      {
+        "episode": 58,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.5333333015441895,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6538971662521362
+      },
+      {
+        "episode": 59,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.633333444595337,
+        "max_hold_seconds": 1.3333327770233154,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6495316624641418
+      },
+      {
+        "episode": 60,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5333333015441895,
+        "max_hold_seconds": 1.2499995231628418,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6603930592536926
+      },
+      {
+        "episode": 61,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.7166666984558105,
+        "max_hold_seconds": 0.516666829586029,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6335877180099487
+      },
+      {
+        "episode": 62,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.633333444595337,
+        "max_hold_seconds": 1.0666663646697998,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.653374969959259
+      },
+      {
+        "episode": 63,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.549999952316284,
+        "max_hold_seconds": 1.0166664123535156,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6429232358932495
+      },
+      {
+        "episode": 64,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.6500000953674316,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6570128202438354
+      },
+      {
+        "episode": 65,
+        "object": 2,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.75,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6256006956100464
+      },
+      {
+        "episode": 66,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.616666555404663,
+        "max_hold_seconds": 0.8666664958000183,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6615666151046753
+      },
+      {
+        "episode": 67,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5166666507720947,
+        "max_hold_seconds": 0.7999998927116394,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6355704665184021
+      },
+      {
+        "episode": 68,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.683333396911621,
+        "max_hold_seconds": 1.1999995708465576,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6604362726211548
+      },
+      {
+        "episode": 69,
+        "object": 0,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.549999952316284,
+        "max_hold_seconds": 0.20000000298023224,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6385495066642761
+      },
+      {
+        "episode": 70,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 3.1500000953674316,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.7174153327941895
+      },
+      {
+        "episode": 71,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5,
+        "max_hold_seconds": 1.3833327293395996,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.669913649559021
+      },
+      {
+        "episode": 72,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.616666555404663,
+        "max_hold_seconds": 0.9666664004325867,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6684936881065369
+      },
+      {
+        "episode": 73,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.5333333015441895,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6539313793182373
+      },
+      {
+        "episode": 74,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.6500000953674316,
+        "max_hold_seconds": 1.1666662693023682,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6653883457183838
+      },
+      {
+        "episode": 75,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.549999952316284,
+        "max_hold_seconds": 1.233332872390747,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6476069688796997
+      },
+      {
+        "episode": 76,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.683333396911621,
+        "max_hold_seconds": 0.8333331942558289,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6534366607666016
+      },
+      {
+        "episode": 77,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.9000000953674316,
+        "max_hold_seconds": 0.9499997496604919,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6611109972000122
+      },
+      {
+        "episode": 78,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.4833333492279053,
+        "max_hold_seconds": 1.2833328247070312,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6512079834938049
+      },
+      {
+        "episode": 79,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 3.049999952316284,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6465616822242737
+      },
+      {
+        "episode": 80,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.7166666984558105,
+        "max_hold_seconds": 1.233332872390747,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6755873560905457
+      },
+      {
+        "episode": 81,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5166666507720947,
+        "max_hold_seconds": 0.9333330988883972,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6608849167823792
+      },
+      {
+        "episode": 82,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5,
+        "max_hold_seconds": 0.9166664481163025,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6329376101493835
+      },
+      {
+        "episode": 83,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.633333444595337,
+        "max_hold_seconds": 1.3166661262512207,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6680291295051575
+      },
+      {
+        "episode": 84,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.616666555404663,
+        "max_hold_seconds": 1.1333329677581787,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6493927240371704
+      },
+      {
+        "episode": 85,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.433333396911621,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6357241868972778
+      },
+      {
+        "episode": 86,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.816666603088379,
+        "max_hold_seconds": 1.0833330154418945,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6555306911468506
+      },
+      {
+        "episode": 87,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.450000047683716,
+        "max_hold_seconds": 0.9999997019767761,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6258699297904968
+      },
+      {
+        "episode": 88,
+        "object": 1,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.6666667461395264,
+        "max_hold_seconds": 0.9499997496604919,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6410642266273499
+      },
+      {
+        "episode": 89,
+        "object": 2,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.6666667461395264,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6338669657707214
+      },
+      {
+        "episode": 90,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.5333333015441895,
+        "max_hold_seconds": 0.8666664958000183,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6525530815124512
+      },
+      {
+        "episode": 91,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.799999952316284,
+        "max_hold_seconds": 0.06666667014360428,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6413605213165283
+      },
+      {
+        "episode": 92,
+        "object": 2,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.75,
+        "max_hold_seconds": 0.03333333507180214,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.595429539680481
+      },
+      {
+        "episode": 93,
+        "object": 0,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.566666603088379,
+        "max_hold_seconds": 0.9499997496604919,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6585106253623962
+      },
+      {
+        "episode": 94,
+        "object": 1,
+        "success": false,
+        "fell": true,
+        "duration_seconds": 2.8499999046325684,
+        "max_hold_seconds": 0.0,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6124396920204163
+      },
+      {
+        "episode": 95,
+        "object": 2,
+        "success": true,
+        "fell": true,
+        "duration_seconds": 2.6666667461395264,
+        "max_hold_seconds": 1.2666661739349365,
+        "end_hold_seconds": 0.0,
+        "leg_joint_excursion_rad": 0.6743568778038025
+      }
+    ],
+    "posture_trace": [
+      {
+        "episode": 0,
+        "seconds": 0.0,
+        "base_position": [
+          0.0,
+          0.0,
+          0.7400000095367432
+        ],
+        "gravity_b": [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        "object_heights": [
+          -20.0,
+          -22.0,
+          -24.0
+        ],
+        "support_error": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "episode": 1,
+        "seconds": 0.0,
+        "base_position": [
+          0.0,
+          0.0,
+          0.7400000095367432
+        ],
+        "gravity_b": [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        "object_heights": [
+          -20.0,
+          -22.0,
+          -24.0
+        ],
+        "support_error": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "episode": 2,
+        "seconds": 0.0,
+        "base_position": [
+          0.0,
+          0.0,
+          0.7400000095367432
+        ],
+        "gravity_b": [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        "object_heights": [
+          -20.0,
+          -22.0,
+          -24.0
+        ],
+        "support_error": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "episode": 0,
+        "seconds": 1.0,
+        "base_position": [
+          0.04534912109375,
+          0.0044403076171875,
+          0.6909139156341553
+        ],
+        "gravity_b": [
+          0.02110941708087921,
+          -0.009976999834179878,
+          -0.9997273683547974
+        ],
+        "object_heights": [
+          0.9324984550476074,
+          -21.983518600463867,
+          -23.983009338378906
+        ],
+        "support_error": [
+          0.11059506237506866,
+          -0.0048011234030127525
+        ]
+      },
+      {
+        "episode": 1,
+        "seconds": 1.0,
+        "base_position": [
+          0.03536224365234375,
+          8.0108642578125e-05,
+          0.691968560218811
+        ],
+        "gravity_b": [
+          0.027109546586871147,
+          -0.009818674065172672,
+          -0.9995842576026917
+        ],
+        "object_heights": [
+          -19.983333587646484,
+          1.0172916650772095,
+          -23.983009338378906
+        ],
+        "support_error": [
+          0.09727134555578232,
+          0.0018226339016109705
+        ]
+      },
+      {
+        "episode": 2,
+        "seconds": 1.0,
+        "base_position": [
+          0.049407958984375,
+          0.01275634765625,
+          0.6848658919334412
+        ],
+        "gravity_b": [
+          0.008828637190163136,
+          -0.01305271964520216,
+          -0.9998758435249329
+        ],
+        "object_heights": [
+          -19.983333587646484,
+          -21.983518600463867,
+          0.8610857129096985
+        ],
+        "support_error": [
+          0.10907313227653503,
+          -0.015092558227479458
+        ]
+      },
+      {
+        "episode": 0,
+        "seconds": 2.0,
+        "base_position": [
+          0.15826416015625,
+          -0.002262115478515625,
+          0.6458427906036377
+        ],
+        "gravity_b": [
+          0.11587587743997574,
+          -0.0035029444843530655,
+          -0.9932575225830078
+        ],
+        "object_heights": [
+          0.6612154841423035,
+          -21.983518600463867,
+          -23.983009338378906
+        ],
+        "support_error": [
+          0.25168082118034363,
+          0.008507607504725456
+        ]
+      },
+      {
+        "episode": 1,
+        "seconds": 2.0,
+        "base_position": [
+          0.10335540771484375,
+          -0.0013942718505859375,
+          0.6813976764678955
+        ],
+        "gravity_b": [
+          0.04510360583662987,
+          0.021148117259144783,
+          -0.9987584352493286
+        ],
+        "object_heights": [
+          -19.983333587646484,
+          0.9691500067710876,
+          -23.983009338378906
+        ],
+        "support_error": [
+          0.1807316392660141,
+          0.02774904854595661
+        ]
+      },
+      {
+        "episode": 2,
+        "seconds": 2.0,
+        "base_position": [
+          0.19755172729492188,
+          0.0049953460693359375,
+          0.6435328722000122
+        ],
+        "gravity_b": [
+          0.1453881561756134,
+          0.005226845387369394,
+          -0.9893608689308167
+        ],
+        "object_heights": [
+          -19.983333587646484,
+          -21.983518600463867,
+          0.707396388053894
+        ],
+        "support_error": [
+          0.3235818147659302,
+          -0.001336952205747366
+        ]
+      }
+    ]
+  },
+  "checkpoint": "/home/zhe/GPTControl/trained_models/body_hug_v1/model_best.pt"
+}

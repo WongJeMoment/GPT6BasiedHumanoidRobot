@@ -15,6 +15,10 @@ class ObjectSpec:
 
 @dataclass
 class Settings:
+    strict_hug: bool = False  # 掉物立即失败；成功只在回合末持续抱持时确认
+    drop_height: float = 0.50  # 物体中心低于此离地高度，已离开抱抓区，立即重新投放
+    required_hold_seconds: float = 2.0
+    active_legs: bool = False  # 主动重心调整与持续站立训练；旧模型配置保留原行为
     residual_rl: bool = False  # 扩展控制状态观测及接物密集奖励；旧检查点不可混用
     controller: str = "joint"  # joint：原关节动作；hierarchical：分层抱接 + PPO 残差
     catch_control: CatchControlCfg = field(default_factory=CatchControlCfg)
@@ -55,7 +59,15 @@ class Settings:
             raise ValueError("controller 必须为 joint 或 hierarchical")
         if self.residual_rl and self.controller != "hierarchical":
             raise ValueError("residual_rl 需要 hierarchical 控制器")
+        if self.active_legs and not self.residual_rl:
+            raise ValueError("active_legs 需要 residual_rl 的支撑状态观测")
         self.catch_control.validate()
+        if self.strict_hug and (not self.active_legs or self.continuous):
+            raise ValueError("strict_hug 需要 active_legs 与单次抛掷回合")
+        if self.strict_hug and not (0 < self.drop_height < self.target_height
+                                   and math.isfinite(self.required_hold_seconds)
+                                   and 0 < self.required_hold_seconds < self.episode_seconds - self.first_throw_delay):
+            raise ValueError("drop_height 必须低于目标高度，抱持时长必须为正")
         for name in ("speed_range", "distance_range", "launch_height_range", "interval_range"):
             low, high = getattr(self, name)
             if not (0 < low <= high and math.isfinite(high)):

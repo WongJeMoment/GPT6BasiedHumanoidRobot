@@ -21,6 +21,8 @@ class CatchControlCfg:
     ik_damping: float = 0.08
     joint_speed: float = 5.0       # 目标关节速度上限 rad/s
     residual_scale: float = 0.08   # PPO 在分层目标上叠加的小幅残差
+    support_shift_gain: float = 1.8  # 主动下肢：捕获点误差到髋踝平移修正
+    upright_tilt_gain: float = 0.8   # 主动下肢：躯干俯仰恢复增益
 
     def validate(self):
         for name, value in vars(self).items():

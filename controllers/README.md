@@ -1,6 +1,10 @@
 # 分层具身接物控制
 
+掉物立即失败、重新投放及主动抱抓奖励的最新本机训练入口见 [LOCAL_HUG_TRAINING.md](LOCAL_HUG_TRAINING.md)，运行 `./train_hug.sh`。
+
 强化学习训练、模型回放和固定来物对照评估见 [RL_TRAINING.md](RL_TRAINING.md)。
+
+主动下肢调整与接住后持续站立的训练见 [STABLE_CATCH.md](STABLE_CATCH.md)。
 
 `single_throw.py` 默认选择 `controller="hierarchical"`。运行：
 

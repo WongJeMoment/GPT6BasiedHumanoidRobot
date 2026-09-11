@@ -9,7 +9,7 @@ class HierarchicalCatchController:
         self.env = env
         self.cfg = env.settings.catch_control
         self.planner = CatchPlanner(env.num_envs, env.device, self.cfg)
-        self.motor = WholeBodyController(env.robot, self.cfg)
+        self.motor = WholeBodyController(env.robot, self.cfg, env.settings.active_legs)
         # 区分前后厚度、左右宽度和高度，箱体不能只用一个半径确定胸前距离。
         half_sizes, shapes = [], []
         for spec in env.settings.objects:

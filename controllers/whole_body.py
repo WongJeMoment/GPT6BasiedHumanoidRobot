@@ -24,8 +24,9 @@ def damped_ik(jacobian, error, damping):
 
 
 class WholeBodyController:
-    def __init__(self, robot, cfg):
+    def __init__(self, robot, cfg, active_legs=False):
         self.robot, self.cfg = robot, cfg
+        self.active_legs = active_legs
         names = robot.joint_names
         self.joints = {name: i for i, name in enumerate(names)}
         self.arms = []
@@ -48,11 +49,13 @@ class WholeBodyController:
         # PhysX 的默认质量缓存在 CPU；只在初始化时搬到控制设备。
         mass = robot.data.default_mass.to(self.target.device)
         self.mass_weights = mass / mass.sum(-1, keepdim=True)
+        self.support_error = torch.zeros_like(robot.data.root_pos_w)
 
     def reset(self, ids):
         self.target[ids] = self.robot.data.default_joint_pos[ids]
         self.previous_phase[ids] = Phase.READY
         self.draw_in[ids] = 0
+        self.support_error[ids] = 0
 
     def compute(self, prediction, position, phase, elapsed, extent, yaw, dt, contact):
         from isaaclab.utils.math import quat_apply
@@ -90,6 +93,7 @@ class WholeBodyController:
         height = (com[:, 2] - support[:, 2]).clamp_min(0.2)
         capture = com + com_velocity * torch.sqrt(height / 9.81)[:, None]
         support_error = rotate_yaw(capture - support, yaw, inverse=True)
+        self.support_error.copy_(support_error)
         pitch = (1.2 * gravity[:, 0] + 0.25 * data.root_lin_vel_b[:, 0]
                  + 0.15 * data.root_ang_vel_b[:, 1]
                  + 1.5 * support_error[:, 0]).clamp(-0.35, 0.35)
@@ -101,6 +105,22 @@ class WholeBodyController:
                                   ("knee", compression), ("ankle_pitch", -compression * 0.5 + pitch),
                                   ("hip_roll", -roll * 0.4), ("ankle_roll", roll)):
                 desired[:, self.joints[f"{side}_{suffix}_joint"]] += delta
+        if self.active_legs:
+            # 捕获点偏前时髋部负向、踝部正向配合，把骨盆移回支撑区。
+            # 两关节同向增加会使骨盆继续前移，旧控制器因此持续积累前倾。
+            shift = (c.support_shift_gain * support_error[:, 0]).clamp(-0.35, 0.35)
+            tilt = (c.upright_tilt_gain * gravity[:, 0] + 0.12 * data.root_ang_vel_b[:, 1]).clamp(-0.25, 0.25)
+            lateral = (-1.5 * support_error[:, 1]).clamp(-0.20, 0.20)
+            # 缓冲期间屈膝，进入抱持后逐渐恢复支撑高度，不持续下蹲。
+            squat = torch.where(phase == Phase.ABSORB, 0.12,
+                                torch.where(phase == Phase.HOLD, 0.12 * torch.exp(-elapsed / 0.4), 0.03))
+            for side in ("left", "right"):
+                corrections = {"hip_pitch": -shift - squat / 2,
+                               "knee": squat, "ankle_pitch": shift + tilt - squat / 2,
+                               "hip_roll": -lateral, "ankle_roll": lateral}
+                for suffix, correction in corrections.items():
+                    index = self.joints[f"{side}_{suffix}_joint"]
+                    desired[:, index] = data.default_joint_pos[:, index] + correction
         # 腰部朝向来物；G1 的 torso_joint 仅偏航，俯仰由双髋与踝部协同完成。
         facing = torch.where(receiving, position[:, 1], center[:, 1])
         desired[:, self.joints["torso_joint"]] += (facing * 0.6).clamp(-0.15, 0.15)

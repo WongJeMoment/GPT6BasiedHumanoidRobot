@@ -3,6 +3,7 @@ import torch
 
 # 阶段5、接触3、计时2、收臂1、名义/发送目标46、物体姿态4、时间1、激活1、成功1。
 EXTRA_OBSERVATIONS = 64
+LEG_OBSERVATIONS = 21  # 基座高度1、捕获点误差2、双足位置6/速度6/接触力6
 
 
 def task_reward(active, upright, proximity, contact, speed, stable_time, new_success,
@@ -29,7 +30,7 @@ def observation(env, object_state):
     control, data = env.catch_controller, env.robot.data
     planner = control.planner
     active = env.active_object >= 0
-    return torch.cat((
+    obs = torch.cat((
         torch.nn.functional.one_hot(planner.phase, 5).float(),
         planner.contact.float(), planner.elapsed.clamp_max(2.0)[:, None],
         planner.stable_time.clamp_max(2.0)[:, None], control.motor.draw_in[:, None],
@@ -39,3 +40,25 @@ def observation(env, object_state):
         (env.episode_length_buf * env.step_dt / env.settings.episode_seconds)[:, None],
         active.float()[:, None], planner.success.float()[:, None],
     ), dim=-1)
+    if env.settings.active_legs:
+        feet = control.motor.feet
+        forces = torch.stack([s.data.net_forces_w[:, 0] for s in env.foot_sensors], 1)
+        obs = torch.cat((obs,
+                         (data.root_pos_w[:, 2] - env.scene.env_origins[:, 2])[:, None],
+                         control.motor.support_error[:, :2],
+                         (data.body_pos_w[:, feet] - data.root_pos_w[:, None]).flatten(1),
+                         data.body_lin_vel_w[:, feet].flatten(1), (forces / 100).flatten(1)), -1)
+    return obs
+
+
+def stability_reward(upright, height, support_error, velocity, foot_velocity, foot_contact,
+                     stable_time, fallen, terminal, dt):
+    """持续站立与抱持奖励：不能通过接住后立即跌倒兑现一次奖励。"""
+    balance = torch.exp(-support_error[:, :2].square().sum(-1) / 0.01)
+    height_score = torch.exp(-(height - 0.70).square() / 0.01)
+    slip = (foot_velocity[:, :, :2].square().sum(-1) * foot_contact).sum(-1)
+    sustained = (stable_time / 2.0).clamp(0, 1)
+    return ((6 * upright + 4 * balance + 2 * height_score + 20 * sustained
+             - 2 * velocity[:, :2].square().sum(-1) - 0.5 * slip) * dt
+            - 45 * fallen.float()
+            + 50 * (terminal & ~fallen & (stable_time >= 2.0)).float())

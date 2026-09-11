@@ -14,6 +14,9 @@ parser.add_argument("--steps", type=int, default=None, help="运行步数；0 �
 parser.add_argument("--iterations", type=int, default=1500)
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--checkpoint")
+parser.add_argument("--warm_start", help="迁移旧模型到主动下肢策略，不恢复优化器")
+parser.add_argument("--init_policy", help="同结构策略迁移：只加载动作网络，重新学习新奖励的价值函数")
+parser.add_argument("--episode_seconds", type=float, help="覆盖回合时长，用于同条件长时评估")
 parser.add_argument("--log_dir", help="训练输出目录；默认以时间命名")
 parser.add_argument("--eval_episodes", type=int, default=96)
 parser.add_argument("--eval_seed", type=int, default=2026)
@@ -47,6 +50,12 @@ if args.num_envs is not None:
     settings.num_envs = args.num_envs
 if args.controller is not None:
     settings.controller = args.controller
+if args.episode_seconds is not None:
+    settings.episode_seconds = args.episode_seconds
+if args.warm_start and (args.checkpoint or args.mode != "train" or not settings.active_legs):
+    parser.error("--warm_start 仅用于主动下肢训练，且不可同时指定 --checkpoint")
+if args.init_policy and (args.mode != "train" or args.checkpoint or args.warm_start):
+    parser.error("--init_policy 仅用于训练，不能与 --checkpoint/--warm_start 同用")
 settings.validate()
 if args.mode == "play" and not args.checkpoint:
     parser.error("--mode play 需要 --checkpoint 路径")
@@ -61,6 +70,10 @@ if args.checkpoint:
             parser.error("检查点的观测结构与配置不一致；身体抱抓 RL 模型请使用 env_configs/rl_catch.py")
         if saved.get("controller", "joint") != settings.controller:
             parser.error("检查点与当前 controller 不一致，动作含义不能混用")
+        if saved.get("active_legs", False) != settings.active_legs:
+            parser.error("检查点的下肢观测结构不一致，请使用对应配置或通过 --warm_start 迁移")
+        if args.mode == "train" and saved.get("strict_hug", False) != settings.strict_hug:
+            parser.error("奖励任务已改变，请用 --init_policy 迁移动作网络，不能恢复旧任务优化器")
 launcher = AppLauncher(args)
 app = launcher.app
 env = None
@@ -108,12 +121,40 @@ try:
             agent_cfg.policy.init_noise_std = 0.35
             agent_cfg.algorithm.gamma = 0.995
             agent_cfg.algorithm.entropy_coef = 0.002
+        if settings.strict_hug:
+            # 身体抱持对小幅接触变化敏感；新奖励迁移时避免大步更新破坏已有动作。
+            agent_cfg.algorithm.learning_rate = 3e-5
+            agent_cfg.algorithm.schedule = "fixed"
+            agent_cfg.algorithm.entropy_coef = 0.0
+            agent_cfg.algorithm.gamma = 0.999  # 让 8 秒终点抱稳回报仍能影响早期动作
         wrapped = RslRlVecEnvWrapper(env, clip_actions=1.0)
         runner = OnPolicyRunner(wrapped, agent_cfg.to_dict(), log_dir=str(log_dir) if log_dir else None, device=env.device)
         if log_dir:
             (log_dir / "agent_config.json").write_text(json.dumps(agent_cfg.to_dict(), indent=2))
         if args.checkpoint:
             runner.load(args.checkpoint)
+        elif args.init_policy:
+            # 新奖励与旧价值估计不兼容；保留动作与观测归一化，价值网络和优化器从头学习。
+            source = torch.load(args.init_policy, map_location=env.device, weights_only=False)["model_state_dict"]
+            state = runner.alg.policy.state_dict()
+            for key in state:
+                if key.startswith("actor.") or key.startswith("actor_obs_normalizer.") or key in ("std", "log_std"):
+                    if key not in source or source[key].shape != state[key].shape:
+                        raise ValueError(f"策略迁移结构不一致: {key}")
+                    state[key] = source[key]
+            runner.alg.policy.load_state_dict(state)
+            if settings.strict_hug:
+                with torch.no_grad():
+                    runner.alg.policy.std.fill_(0.04)
+            runner.logger_type = agent_cfg.logger
+            runner.save(str(log_dir / "initial_policy.pt"))
+            print(f"本地策略迁移: {args.init_policy}；价值网络与优化器重新初始化", flush=True)
+        elif args.warm_start:
+            from g1_throw.warm_start import warm_start
+            warm_start(runner, args.warm_start, env)
+            # RSL-RL 直到 learn 才初始化 logger_type，预训练快照需要先指定它。
+            runner.logger_type = agent_cfg.logger
+            runner.save(str(log_dir / "warm_start.pt"))
         elif settings.residual_rl:
             # 初始均值接近零修正，从现有控制器附近开始探索。
             final_layer = [m for m in runner.alg.policy.actor.modules() if isinstance(m, torch.nn.Linear)][-1]
@@ -144,8 +185,9 @@ try:
     else:
         obs, _ = env.reset()
         if args.mode == "smoke":
-            from g1_throw.checks import check_launch_and_partial_reset
+            from g1_throw.checks import check_launch_and_partial_reset, check_drop_reset
             check_launch_and_partial_reset(env)
+            check_drop_reset(env)
         seen_throws = 0
         caught = 0
         catch_latched = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
