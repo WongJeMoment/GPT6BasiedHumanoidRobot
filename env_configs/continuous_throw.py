@@ -4,7 +4,7 @@ from env_configs.common import ObjectSpec, Settings
 CONFIG = Settings(
     continuous=True,
     episode_seconds=30.0,
-    speed_range=(4.0, 5.0),
+    speed_range=(6.0, 8.0),
     interval_range=(4.0, 6.0),
     distance_range=(1.0, 1.4),
     launch_height_range=(1.05, 1.20),

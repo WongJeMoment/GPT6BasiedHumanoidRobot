@@ -23,11 +23,12 @@ class Settings:
     episode_seconds: float = 20.0
     physics_dt: float = 1 / 120
     decimation: int = 2
-    speed_range: tuple[float, float] = (4.0, 5.0)
+    speed_range: tuple[float, float] = (6.0, 8.0)
     distance_range: tuple[float, float] = (1.0, 1.4)
     launch_height_range: tuple[float, float] = (1.05, 1.20)
     azimuth_range: tuple[float, float] = (-0.12, 0.12)
     target_height: float = 1.0
+    target_lateral_range: tuple[float, float] = (-0.65, 0.65)  # 相对机器人中心的横向瞄准偏移，m
     interval_range: tuple[float, float] = (2.5, 4.0)
     first_throw_delay: float = 0.5
     continuous: bool = False
@@ -80,11 +81,14 @@ class Settings:
             raise ValueError("首次抛掷必须在回合结束前")
         if self.azimuth_range[0] > self.azimuth_range[1]:
             raise ValueError("azimuth_range 顺序错误")
+        low, high = self.target_lateral_range
+        if not (math.isfinite(low) and math.isfinite(high) and low <= high):
+            raise ValueError("target_lateral_range 必须为有限数且最小值 <= 最大值")
         if self.env_spacing < 2 * self.distance_range[1] + 1:
             raise ValueError("env_spacing 太小，至少为 2 * 最大抛掷距离 + 1")
         # 保证最慢速度也可覆盖所有发射点到标称目标高度的弹道。
         v2 = self.speed_range[0] ** 2
-        d = self.distance_range[1]
+        d = self.distance_range[1] + max(abs(low), abs(high))
         dz = self.target_height - self.launch_height_range[0]
         if v2 * v2 - 9.81 * (9.81 * d * d + 2 * dz * v2) < 0:
             raise ValueError("速度太低，无法到达目标；提高 speed_range 或减小距离/目标高度")

@@ -160,6 +160,7 @@ class G1ThrowEnv(DirectRLEnv):
         distance = self._uniform(s.distance_range, n)
         angle = self._uniform(s.azimuth_range, n)
         height = self._uniform(s.launch_height_range, n)
+        target_lateral = self._uniform(s.target_lateral_range, n)
         if self.launch_plan is not None:
             # 评估计划按环境索引选取，早跌倒的环境不会改变其他环境的发射样本。
             chosen = self.launch_plan["object"][env_ids]
@@ -167,21 +168,25 @@ class G1ThrowEnv(DirectRLEnv):
             distance = self.launch_plan["distance"][env_ids]
             angle = self.launch_plan["angle"][env_ids]
             height = self.launch_plan["height"][env_ids]
-        # +X 为机器人前方。向当前根位置的水平坐标、配置的目标高度发射。
+            target_lateral = self.launch_plan["target_lateral"][env_ids]
+        # +X 为机器人前方，瞄准点在当前根位置左右随机偏移。
         position = self.robot.data.root_pos_w[env_ids].clone()
         position[:, 0] += distance * torch.cos(angle)
         position[:, 1] += distance * torch.sin(angle)
         position[:, 2] = self.scene.env_origins[env_ids, 2] + height
+        delta_x = -distance * torch.cos(angle)
+        delta_y = target_lateral - distance * torch.sin(angle)
+        target_distance = torch.sqrt(delta_x.square() + delta_y.square()).clamp_min(1e-6)
         dz = s.target_height - height
         g = abs(self.cfg.sim.gravity[2])
         v2 = speed.square()
-        discriminant = v2.square() - g * (g * distance.square() + 2 * dz * v2)
+        discriminant = v2.square() - g * (g * target_distance.square() + 2 * dz * v2)
         # 低弹道精确满足采样的初速度大小，补偿重力。
-        tangent = (v2 - discriminant.clamp_min(0).sqrt()) / (g * distance)
+        tangent = (v2 - discriminant.clamp_min(0).sqrt()) / (g * target_distance)
         horizontal_speed = speed / torch.sqrt(1 + tangent.square())
         velocity = torch.stack((
-            -horizontal_speed * torch.cos(angle),
-            -horizontal_speed * torch.sin(angle), horizontal_speed * tangent,
+            horizontal_speed * delta_x / target_distance,
+            horizontal_speed * delta_y / target_distance, horizontal_speed * tangent,
         ), dim=-1)
         for i, obj in enumerate(self.objects):
             mask = chosen == i

@@ -1,4 +1,4 @@
-"""身体抱抓 PPO 残差训练：保持原 4–5 m/s 来物分布和三方接触成功判据。"""
+"""身体抱抓 PPO 残差训练：继承单次抛掷来物分布和三方接触成功判据。"""
 from copy import deepcopy
 from env_configs.single_throw import CONFIG as SINGLE_THROW
 

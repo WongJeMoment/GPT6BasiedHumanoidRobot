@@ -8,7 +8,8 @@ def launch_dataset(settings, episodes, seed):
     generator = torch.Generator().manual_seed(seed)
     plan = {"object": torch.arange(episodes) % len(settings.objects)}
     for key, bounds in (("speed", settings.speed_range), ("distance", settings.distance_range),
-                        ("angle", settings.azimuth_range), ("height", settings.launch_height_range)):
+                        ("angle", settings.azimuth_range), ("height", settings.launch_height_range),
+                        ("target_lateral", settings.target_lateral_range)):
         plan[key] = torch.rand(episodes, generator=generator) * (bounds[1] - bounds[0]) + bounds[0]
     return plan
 
