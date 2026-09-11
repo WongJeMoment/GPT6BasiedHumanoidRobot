@@ -1,0 +1,21 @@
+{
+  "evaluation_date": "2026-09-11",
+  "seed": 2027,
+  "episodes": 96,
+  "success_definition": "upright body, left arm and right arm contact for at least 0.4 seconds at low relative speed",
+  "baseline": {
+    "successes": 8,
+    "success_rate": 0.08333333333333333,
+    "held_one_second": 0,
+    "falls": 96,
+    "by_object": {"ball": "8/32", "box": "0/32", "can": "0/32"}
+  },
+  "policy": {
+    "successes": 76,
+    "success_rate": 0.7916666666666666,
+    "held_one_second": 39,
+    "falls": 96,
+    "by_object": {"ball": "32/32", "box": "14/32", "can": "30/32"}
+  },
+  "limitation": "Every evaluated episode eventually fell within the 4 second horizon. This model improves short hold success, not long-term standing stability."
+}

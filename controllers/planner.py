@@ -18,6 +18,7 @@ class CatchPlanner:
         self.elapsed = torch.zeros(count, device=device)
         self.stable_time = torch.zeros_like(self.elapsed)
         self.success = torch.zeros(count, dtype=torch.bool, device=device)
+        self.contact = torch.zeros(count, 3, dtype=torch.bool, device=device)
 
     def reset(self, ids):
         """局部重置：不影响其他并行环境的任务进度。"""
@@ -25,14 +26,18 @@ class CatchPlanner:
         self.elapsed[ids] = 0
         self.stable_time[ids] = 0
         self.success[ids] = False
+        self.contact[ids] = False
 
     def update(self, position, velocity, gravity, active, contact, upright, dt):
         """位置/速度/重力均位于仅随基座偏航旋转的坐标系。
 
-        contact 必须来自双手对当前物体的过滤接触力，不能用距离冒充接触。
+        contact 三列依次为左臂、右臂、躯干对当前物体的真实接触。
         返回重力补偿拦截点、阶段；不写入物体状态，也不创建吸附约束。
         """
         c = self.cfg
+        if contact.shape != self.contact.shape:
+            raise ValueError("contact 必须包含左臂、右臂、躯干三列")
+        self.contact = contact & active[:, None]
         previous = self.phase.clone()
         self.elapsed += dt
         # 来球 vx<0；对静止、远离和已飞过的物体显式判为不可拦截。
@@ -50,12 +55,13 @@ class CatchPlanner:
         missed = ~active | (position[:, 0] < 0.05) | (position[:, 2] < -0.35)
         self.phase[tracking & ~touching & (missed | (self.elapsed > c.horizon + 0.2))] = Phase.RECOVER
         absorbing = previous == Phase.ABSORB
-        self.phase[absorbing & (self.elapsed >= c.absorb_seconds)] = Phase.HOLD
+        self.phase[absorbing & (self.elapsed >= c.absorb_seconds) & touching] = Phase.HOLD
+        self.phase[absorbing & (missed | ((self.elapsed >= c.absorb_seconds) & ~touching))] = Phase.RECOVER
         holding = previous == Phase.HOLD
         self.phase[holding & (missed | (~contact.any(-1) & (self.elapsed > 0.25)))] = Phase.RECOVER
         stable = (active & upright & contact.all(-1) & (velocity.norm(dim=-1) < c.hold_speed)
                   & (position[:, 0] > 0.05) & (position[:, 0] < 0.65)
-                  & (position[:, 1].abs() < 0.4) & (position[:, 2] > -0.1)
+                  & (position[:, 1].abs() < 0.4) & (position[:, 2] > -0.1) & (position[:, 2] < 0.65)
                   & ((self.phase == Phase.HOLD) | (self.phase == Phase.ABSORB)))
         self.stable_time = torch.where(stable, self.stable_time + dt, 0.0)
         self.success |= self.stable_time >= c.hold_seconds

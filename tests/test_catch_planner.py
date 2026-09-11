@@ -14,7 +14,7 @@ class CatchPlannerTests(unittest.TestCase):
         self.velocity = torch.tensor([[-4., 0., 0.], [4., 0., 0.]])
         self.gravity = torch.tensor([[0., 0., -9.81]]).expand(2, -1)
         self.active = torch.ones(2, dtype=torch.bool)
-        self.contact = torch.zeros(2, 2, dtype=torch.bool)
+        self.contact = torch.zeros(2, 3, dtype=torch.bool)
         self.upright = self.active.clone()
 
     def step(self, dt=1/60):
@@ -70,6 +70,58 @@ class CatchPlannerTests(unittest.TestCase):
         self.upright[0] = False
         self.step()
         self.assertEqual(self.planner.phase[0], Phase.RECOVER)
+
+    def test_two_arms_without_torso_is_not_body_hug(self):
+        self.step()
+        self.position[0] = torch.tensor([.3, 0., .2])
+        self.velocity[0] = 0
+        self.contact[0, :2] = True
+        for _ in range(50):
+            self.step()
+        self.assertFalse(self.planner.success.any())
+        self.assertEqual(self.planner.stable_time[0], 0)
+
+    def test_torso_only_triggers_absorb_but_not_success(self):
+        self.step()
+        self.position[0] = torch.tensor([.3, 0., .2])
+        self.velocity[0] = 0
+        self.contact[0, 2] = True
+        self.step()
+        self.assertEqual(self.planner.phase[0], Phase.ABSORB)
+        for _ in range(50):
+            self.step()
+        self.assertFalse(self.planner.success.any())
+
+    def test_lost_torso_contact_restarts_timer(self):
+        self.step()
+        self.position[0] = torch.tensor([.3, 0., .2])
+        self.velocity[0] = 0
+        self.contact[0] = True
+        for _ in range(10):
+            self.step()
+        self.assertGreater(self.planner.stable_time[0], 0)
+        self.contact[0, 2] = False
+        self.step()
+        self.assertEqual(self.planner.stable_time[0], 0)
+
+    def test_wrap_targets_close_to_chest_without_hold_jump(self):
+        from controllers.hug_targets import hug_targets
+        chest = torch.tensor([[.08, 0., .25]])
+        start = torch.tensor([[.4, .05, .3]])
+        size = torch.tensor([[.2, .18, .15]])
+        phase = torch.tensor([Phase.ABSORB])
+        before, _, _ = hug_targets(start, chest, start, phase, torch.tensor([0.]), size, self.cfg)
+        end, palms, elbows = hug_targets(start, chest, start, phase,
+                                         torch.tensor([self.cfg.absorb_seconds]), size, self.cfg)
+        hold, _, _ = hug_targets(start, chest, start, torch.tensor([Phase.HOLD]),
+                                 torch.tensor([0.]), size, self.cfg)
+        torch.testing.assert_close(before, start)
+        torch.testing.assert_close(hold, end)
+        self.assertLess(end[0, 0], start[0, 0])
+        self.assertTrue((palms[0, :, 0] > end[0, 0]).all())
+        self.assertTrue((elbows[0, :, 0] < palms[0, :, 0]).all())
+        self.assertGreater(palms[0, 0, 1], 0)
+        self.assertLess(palms[0, 1, 1], 0)
 
     def test_yaw_round_trip_and_singular_ik(self):
         yaw = torch.tensor([1.2, -2.1])

@@ -15,6 +15,7 @@ class ObjectSpec:
 
 @dataclass
 class Settings:
+    residual_rl: bool = False  # 扩展控制状态观测及接物密集奖励；旧检查点不可混用
     controller: str = "joint"  # joint：原关节动作；hierarchical：分层抱接 + PPO 残差
     catch_control: CatchControlCfg = field(default_factory=CatchControlCfg)
     num_envs: int = 64
@@ -51,6 +52,8 @@ class Settings:
         import re
         if self.controller not in ("joint", "hierarchical"):
             raise ValueError("controller 必须为 joint 或 hierarchical")
+        if self.residual_rl and self.controller != "hierarchical":
+            raise ValueError("residual_rl 需要 hierarchical 控制器")
         self.catch_control.validate()
         for name in ("speed_range", "distance_range", "launch_height_range", "interval_range"):
             low, high = getattr(self, name)

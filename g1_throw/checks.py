@@ -25,6 +25,7 @@ def check_launch_and_partial_reset(env):
         # 写入独立任务状态，确认局部复位不串扰其他环境。
         controller.planner.elapsed[1:] = 0.123
         controller.planner.success[1:] = True
+        controller.motor.draw_in[1:] = 0.012
     env._throw(ids)
     first = int(env.active_object[0])
     seen = {first}
@@ -68,6 +69,8 @@ def check_launch_and_partial_reset(env):
         assert not controller.planner.success[0]
         assert controller.planner.success[1:].all()
         assert (controller.planner.elapsed[1:] == 0.123).all()
+        assert controller.motor.draw_in[0] == 0
+        assert (controller.motor.draw_in[1:] == 0.012).all()
         # 检查结束后清除测试注入的状态，避免污染实际成功统计。
         controller.reset(env.indices)
     print(f"LAUNCH CHECK PASSED: 覆盖 {len(seen)} 个物体，种类切换/速度/弹道/局部重置/STL 尺寸碰撞正常")
