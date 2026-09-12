@@ -17,6 +17,8 @@ def launch_dataset(settings, episodes, seed):
 @torch.inference_mode()
 def evaluate(env, policy, episodes=96, seed=2026):
     from dataclasses import asdict
+    if env.settings.shelf_task:
+        return evaluate_shelf(env, policy, episodes, seed)
     if env.settings.continuous or env.catch_controller is None:
         raise ValueError("固定回合评估需要单次抛掷与分层控制")
     plan = launch_dataset(env.settings, episodes, seed)
@@ -101,3 +103,53 @@ def evaluate(env, policy, episodes=96, seed=2026):
         subset = [row for row in results if row["object"] == i]
         report["by_object"][spec.name] = {"episodes": len(subset), "successes": sum(row["success"] for row in subset)}
     return report
+
+
+@torch.inference_mode()
+def evaluate_shelf(env, policy, episodes, seed):
+    """放架任务独立统计接住与完整成功，读取自动复位前的终止步快照。"""
+    from dataclasses import asdict
+    plan = launch_dataset(env.settings, episodes, seed)
+    previous_plan = env.launch_plan
+    results = []
+    try:
+        for offset in range(0, episodes, env.num_envs):
+            count = min(env.num_envs, episodes - offset)
+            ids = (torch.arange(env.num_envs) + offset).clamp_max(episodes - 1)
+            env.launch_plan = {key: value[ids].to(env.device) for key, value in plan.items()}
+            obs, _ = env.reset(seed=seed + offset)
+            alive = torch.arange(env.num_envs, device=env.device) < count
+            for step in range(env.max_episode_length + 2):
+                actions = torch.zeros_like(env.actions) if policy is None else policy(TensorDict(obs, batch_size=[env.num_envs]))
+                obs, reward, terminated, truncated, extras = env.step(actions)
+                if not torch.isfinite(reward).all() or not torch.isfinite(obs["policy"]).all():
+                    raise RuntimeError("放架评估出现非有限数值")
+                metrics = extras["shelf"]
+                finished = alive & (terminated | truncated)
+                for i in finished.nonzero().flatten().tolist():
+                    results.append({"episode": offset + i, "object": 0,
+                                    "caught": bool(metrics["caught"][i]),
+                                    "success": bool(metrics["success"][i]),
+                                    "fell": bool(metrics["fallen"][i]),
+                                    "dropped": bool(metrics["dropped"][i]),
+                                    "timeout": bool(truncated[i]),
+                                    "settle_seconds": float(metrics["settle_time"][i]),
+                                    "duration_seconds": (step + 1) * env.step_dt})
+                alive &= ~(terminated | truncated)
+                env.next_throw[~alive] = float("inf")
+                if not alive.any():
+                    break
+            if alive.any():
+                raise RuntimeError("放架评估未完成整回合")
+    finally:
+        env.launch_plan = previous_plan
+    results.sort(key=lambda row: row["episode"])
+    successes = sum(row["success"] for row in results)
+    return {"episodes": episodes, "seed": seed, "settings": asdict(env.settings),
+            "success_definition": "caught_then_released_and_supported_on_upper_shelf",
+            "successes": successes, "success_rate": successes / episodes,
+            "caught": sum(row["caught"] for row in results),
+            "falls": sum(row["fell"] for row in results),
+            "drops": sum(row["dropped"] for row in results),
+            "timeouts": sum(row["timeout"] for row in results),
+            "failures": episodes - successes, "results": results}

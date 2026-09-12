@@ -14,7 +14,55 @@ class ObjectSpec:
 
 
 @dataclass
+class ShelfCfg:
+    # position 的 Z 是上层架面高度；尺寸包含板厚。架子固定在环境坐标系。
+    position: tuple[float, float, float] = (0.45, 0.65, 0.75)
+    size: tuple[float, float, float] = (0.60, 0.55, 0.04)
+    lower_height: float = 0.25
+    leg_width: float = 0.04
+    margin: float = 0.025
+    height_tolerance: float = 0.025
+    catch_seconds: float = 0.20
+    catch_speed: float = 0.65
+    settle_seconds: float = 0.75
+    linear_speed: float = 0.10
+    angular_speed: float = 0.25
+    upright_cos: float = 0.95
+    contact_force: float = 0.25
+    support_weight_fraction: float = 0.70
+    ground_tolerance: float = 0.025
+    escape_distance: float = 3.0
+    joint_speed: float = 6.0
+
+    def validate(self, settings):
+        import math
+        if len(self.position) != 3 or not all(math.isfinite(v) for v in self.position):
+            raise ValueError("架面 position 必须是有限的 XYZ 坐标")
+        if len(self.size) != 3 or not all(math.isfinite(v) and v > 0 for v in self.size):
+            raise ValueError("架板 size 必须是三个有限正数")
+        for name, value in vars(self).items():
+            if name not in ("position", "size") and not (math.isfinite(value) and value > 0):
+                raise ValueError(f"架子参数 {name} 必须为有限正数")
+        if not (self.size[2] < self.lower_height < self.position[2] - self.size[2]):
+            raise ValueError("两层架板必须位于地面上且不能重叠")
+        if self.leg_width >= min(self.size[:2]) / 2:
+            raise ValueError("架腿宽度过大")
+        if not (0 < self.upright_cos <= 1 and 0 < self.support_weight_fraction <= 1):
+            raise ValueError("姿态余弦和承重比例必须位于 (0, 1]")
+        if self.catch_seconds + self.settle_seconds >= settings.episode_seconds - settings.first_throw_delay:
+            raise ValueError("回合必须留出接住和放稳的时间")
+        if any(settings.objects[0].size[i] + 2 * self.margin >= self.size[i] for i in (0, 1)):
+            raise ValueError("架面必须比箱体更大，并留出边缘余量")
+        if any(abs(self.position[i]) + self.size[i] / 2 >= settings.env_spacing / 2 for i in (0, 1)):
+            raise ValueError("架子超出当前并行环境的空间范围")
+        if math.hypot(*self.position[:2]) + max(self.size[:2]) / 2 >= self.escape_distance:
+            raise ValueError("架子必须位于物体有效活动范围内")
+
+
+@dataclass
 class Settings:
+    shelf_task: bool = False  # 独立的接箱再放架任务；不自动生成任何放置动作
+    shelf: ShelfCfg = field(default_factory=ShelfCfg)
     strict_hug: bool = False  # 掉物立即失败；成功只在回合末持续抱持时确认
     drop_height: float = 0.50  # 物体中心低于此离地高度，已离开抱抓区，立即重新投放
     required_hold_seconds: float = 2.0
@@ -98,6 +146,14 @@ class Settings:
             raise ValueError("target_lateral_range 必须为有限数且最小值 <= 最大值")
         if self.env_spacing < 2 * self.distance_range[1] + 1:
             raise ValueError("env_spacing 太小，至少为 2 * 最大抛掷距离 + 1")
+        if self.shelf_task:
+            if self.continuous or self.strict_hug or self.controller != "joint":
+                raise ValueError("放架任务需要单次抛掷与 joint 动作接口，不能使用旧抱持终点/控制器")
+            if len(self.objects) != 1 or self.objects[0].shape != "cuboid":
+                raise ValueError("放架任务需要且仅需要一个 cuboid 箱体")
+            if not math.isfinite(self.objects[0].mass) or not math.isfinite(self.action_scale) or self.action_scale <= 0:
+                raise ValueError("箱体质量和关节动作幅度必须为有限正数")
+            self.shelf.validate(self)
         # 保证最慢速度也可覆盖所有发射点到标称目标高度的弹道。
         v2 = self.speed_range[0] ** 2
         d = self.distance_range[1] + max(abs(low), abs(high))

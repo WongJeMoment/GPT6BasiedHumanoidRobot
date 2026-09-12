@@ -108,3 +108,100 @@ def check_drop_reset(env):
     assert int(env.active_object[0]) != selected, "复位后未切换物体"
     env.reset()
     print("DROP RESET CHECK PASSED: 掉物负奖励/失败覆盖旧成功/自动局部复位/重新投放", flush=True)
+
+
+def check_shelf_task(env):
+    """放架物理测试夹具：验证架面承重与终点逻辑，不代表策略自主完成了接箱。"""
+    if not env.settings.shelf_task:
+        return
+    from isaaclab.sim.utils import get_current_stage
+    from pxr import UsdPhysics
+    task, shelf_cfg = env.shelf_task, env.settings.shelf
+    ids = torch.tensor([0], device=env.device)
+    env.reset()
+    prior_target = env.joint_target.clone()
+    env._pre_physics_step(torch.ones_like(env.actions))
+    assert (env.joint_target - prior_target).abs().max() <= shelf_cfg.joint_speed * env.step_dt + 1e-6
+    limits = env.robot.data.soft_joint_pos_limits
+    assert (env.joint_target >= limits[..., 0] - 1e-6).all() and (env.joint_target <= limits[..., 1] + 1e-6).all()
+    shelf = env.scene.rigid_objects["ShelfTop"]
+    expected = torch.tensor(shelf_cfg.position, device=env.device).expand(env.num_envs, -1).clone()
+    expected[:, 2] -= shelf_cfg.size[2] / 2
+    torch.testing.assert_close(shelf.data.root_pos_w - env.scene.env_origins, expected, atol=1e-5, rtol=0)
+    for name in ("ShelfTop", "ShelfLower", "ShelfLeg0", "ShelfLeg1", "ShelfLeg2", "ShelfLeg3"):
+        prim = get_current_stage().GetPrimAtPath(f"/World/envs/env_0/{name}")
+        assert UsdPhysics.RigidBodyAPI(prim).GetKinematicEnabledAttr().Get(), f"架子未固定: {name}"
+
+    def put_box_above_shelf(caught):
+        env.reset()
+        env.next_throw[:] = float("inf")
+        env._throw(ids)
+        # 只在测试夹具中布置箱体；运行环境没有瞬移箱体到架面的逻辑。
+        state = env.objects[0].data.default_root_state[ids].clone()
+        state[:, :3] = task.goal + env.scene.env_origins[ids]
+        state[:, 2] += .025
+        state[:, 7:] = 0
+        env.objects[0].write_root_state_to_sim(state, env_ids=ids)
+        task.caught[0] = caught
+        task.best_distance[0] = .025
+
+    def fixture_step():
+        # 这里隔离架面物理与任务判据，固定测试机器人的站姿；零动作尚无平衡策略。
+        # 只布置机器人，箱体继续自由积分，承重和松手必须由真实接触传感器验证。
+        state = env.robot.data.default_root_state.clone()
+        state[:, :3] += env.scene.env_origins
+        env.robot.write_root_state_to_sim(state)
+        env.robot.write_joint_state_to_sim(env.robot.data.default_joint_pos, env.robot.data.default_joint_vel)
+        return env.step(torch.zeros_like(env.actions))
+
+    steps = int((shelf_cfg.settle_seconds + .35) / env.step_dt) + 2
+    put_box_above_shelf(False)
+    supported = False
+    for _ in range(steps):
+        _, _, terminated, _, extras = fixture_step()
+        metrics = extras["shelf"]
+        supported |= bool(metrics["supported"][0])
+        assert not metrics["success"][0], "箱子直接落架被误判为接箱放架成功"
+        assert not terminated[0], "放架夹具在接触验证前发生意外终止"
+    assert supported, "架面没有检测到实际承重"
+    bottom = env.objects[0].data.root_pos_w[0, 2] - task.half_size[2] - env.scene.env_origins[0, 2]
+    assert abs(float(bottom) - shelf_cfg.position[2]) < shelf_cfg.height_tolerance, "箱体穿过架面"
+
+    put_box_above_shelf(True)
+    completed = False
+    for _ in range(steps):
+        obs, reward, terminated, truncated, extras = fixture_step()
+        if terminated[0] or truncated[0]:
+            metrics = extras["shelf"]
+            assert metrics["success"][0] and terminated[0] and not truncated[0], "松手放稳未成功终止"
+            assert metrics["supported"][0] and not metrics["robot_touch"][0]
+            assert metrics["settle_time"][0] >= shelf_cfg.settle_seconds and reward[0] > 90
+            assert not task.caught[0] and not task.success[0] and env.active_object[0] == -1
+            assert torch.isfinite(obs["policy"]).all()
+            if env.num_envs > 1:
+                assert not (terminated[1:] | truncated[1:]).any(), "放架成功误重置其他环境"
+                assert (env.episode_length_buf[1:] > 0).all()
+            completed = True
+            break
+    assert completed, "放架成功未在预期时间内触发"
+
+    put_box_above_shelf(True)
+    state = env.objects[0].data.root_state_w[ids].clone()
+    state[:, 0:2] = env.scene.env_origins[ids, :2] + torch.tensor([1.0, 0.0], device=env.device)
+    state[:, 2] = env.scene.env_origins[ids, 2] + task.half_size[2] + .005
+    state[:, 7:] = 0
+    env.objects[0].write_root_state_to_sim(state, env_ids=ids)
+    _, reward, terminated, _, extras = env.step(torch.zeros_like(env.actions))
+    assert terminated[0] and extras["shelf"]["dropped"][0] and not extras["shelf"]["success"][0]
+    assert reward[0] < -59 and env.active_object[0] == -1
+    for _ in range(int(env.settings.first_throw_delay / env.step_dt) + 2):
+        env.step(torch.zeros_like(env.actions))
+    assert env.active_object[0] == 0, "掉落重置后未重新投放箱体"
+    env.reset()
+    env.next_throw[:] = float("inf")
+    env.episode_length_buf[0] = env.max_episode_length - 2
+    _, reward, terminated, truncated, extras = fixture_step()
+    assert truncated[0] and not terminated[0] and not extras["shelf"]["success"][0]
+    assert reward[0] <= -30, "超时空手站立未判为失败"
+    env.reset()
+    print("SHELF CHECK PASSED: 动作限幅限速/固定架体/跨环境位置/真实承重/直接落架不成功/放稳成功及局部复位/掉落失败再投放/超时失败；接住历史及机器人站姿为测试夹具", flush=True)

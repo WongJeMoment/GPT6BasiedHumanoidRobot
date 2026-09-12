@@ -59,8 +59,8 @@ if args.init_policy and (args.mode != "train" or args.checkpoint or args.warm_st
 settings.validate()
 if args.mode == "play" and not args.checkpoint:
     parser.error("--mode play 需要 --checkpoint 路径")
-if args.mode == "eval" and (settings.continuous or settings.controller != "hierarchical"):
-    parser.error("--mode eval 需要单次抛掷的 hierarchical 配置")
+if args.mode == "eval" and (settings.continuous or (settings.controller != "hierarchical" and not settings.shelf_task)):
+    parser.error("--mode eval 需要单次抛掷的 hierarchical 或 catch_and_place 配置")
 if args.checkpoint:
     import json
     metadata_path = Path(args.checkpoint).expanduser().resolve().parent / "resolved_settings.json"
@@ -72,6 +72,8 @@ if args.checkpoint:
             parser.error("检查点与当前 controller 不一致，动作含义不能混用")
         if saved.get("active_legs", False) != settings.active_legs:
             parser.error("检查点的下肢观测结构不一致，请使用对应配置或通过 --warm_start 迁移")
+        if saved.get("shelf_task", False) != settings.shelf_task:
+            parser.error("检查点与放架任务的观测/动作定义不同，需要使用对应环境重新训练")
         if args.mode == "train" and saved.get("strict_hug", False) != settings.strict_hug:
             parser.error("奖励任务已改变，请用 --init_policy 迁移动作网络，不能恢复旧任务优化器")
 launcher = AppLauncher(args)
@@ -185,9 +187,10 @@ try:
     else:
         obs, _ = env.reset()
         if args.mode == "smoke":
-            from g1_throw.checks import check_launch_and_partial_reset, check_drop_reset
+            from g1_throw.checks import check_launch_and_partial_reset, check_drop_reset, check_shelf_task
             check_launch_and_partial_reset(env)
             check_drop_reset(env)
+            check_shelf_task(env)
         seen_throws = 0
         caught = 0
         catch_latched = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
@@ -211,6 +214,9 @@ try:
                     visited_phases.update(metrics["phase"].tolist())
                     contact_steps += metrics["contact"].sum(0)
                     triple_contact_steps += int(metrics["contact"].all(-1).sum())
+                if settings.shelf_task:
+                    # 成功时立即终止，每次只计一个完整的接箱放架回合。
+                    caught += int(env.extras["shelf"]["success"].sum())
                 if args.mode == "smoke":
                     assert obs["policy"].shape == (env.num_envs, env.cfg.observation_space)
                     assert torch.isfinite(obs["policy"]).all() and torch.isfinite(reward).all()
@@ -229,6 +235,8 @@ try:
             from controllers.planner import Phase
             print(f"接物统计: 抛掷 {seen_throws}，成功抱稳 {caught}，阶段 {[Phase(p).name for p in sorted(visited_phases)]}", flush=True)
             print(f"身体抱抓接触步数: 左臂/右臂/躯干 {contact_steps.tolist()}，三方共同接触 {triple_contact_steps}", flush=True)
+        if settings.shelf_task:
+            print(f"接箱放架统计: 抛掷 {seen_throws}，完整任务成功 {caught}；当前运行不包含 GPT 规划", flush=True)
 except KeyboardInterrupt:
     pass
 except Exception:
