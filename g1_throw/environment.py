@@ -1,4 +1,4 @@
-"""DirectRLEnv：站立、分层抱接，以及独立的接箱放架训练环境。"""
+"""G1 抛物与接箱放架环境；接收外部关节动作，负责物理、观测、奖励和复位。"""
 import torch
 
 import isaaclab.sim as sim_utils
@@ -32,22 +32,19 @@ def make_env_cfg(settings, device="cuda:0", seed=42):
     cfg.decimation = settings.decimation
     cfg.sim.render_interval = settings.decimation
     cfg.episode_length_s = settings.episode_seconds
-    # 抱稳/放稳任务有实际时限，不能在超时后虚构未来价值进行 bootstrap。
-    cfg.is_finite_horizon = settings.strict_hug or settings.shelf_task
+    # 放稳任务有实际时限，不能在超时后虚构未来价值进行 bootstrap。
+    cfg.is_finite_horizon = settings.shelf_task
     cfg.scene.num_envs = settings.num_envs
     cfg.scene.env_spacing = settings.env_spacing
     cfg.observation_space = 85 + len(settings.objects)
     if settings.shelf_task:
         from .shelf_task import SHELF_OBSERVATIONS
         cfg.observation_space += SHELF_OBSERVATIONS
-    if settings.residual_rl:
-        from controllers.residual_rl import EXTRA_OBSERVATIONS
-        cfg.observation_space += EXTRA_OBSERVATIONS
-        if settings.active_legs:
-            from controllers.residual_rl import LEG_OBSERVATIONS
-            cfg.observation_space += LEG_OBSERVATIONS
     cfg.viewer.eye = (4.5, 4.5, 3.0)
     cfg.viewer.lookat = (0.0, 0.0, 0.8)
+    if settings.ground_ruler:
+        cfg.viewer.eye = (7.0, -7.0, 6.0)
+        cfg.viewer.lookat = (2.0, 0.0, 0.5)
     return cfg
 
 
@@ -75,22 +72,11 @@ class G1ThrowEnv(DirectRLEnv):
                     if name.startswith(f"{side}_") and any(part in name for part in
                         ("shoulder", "elbow", "palm", "zero", "one", "two", "three", "four", "five", "six"))])
             self.shelf_contact_groups.append([self.shelf_robot_bodies.index("torso_link") + 1])
-        self.catch_controller = None
-        if self.settings.controller == "hierarchical":
-            from controllers.hierarchical import HierarchicalCatchController
-            self.catch_controller = HierarchicalCatchController(self)
         self.joint_target = self.robot.data.default_joint_pos.clone()
         self.previous_actions = self.actions.clone()
-        self.success_rewarded = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-        self.fallen = torch.zeros_like(self.success_rewarded)
-        self.dropped = torch.zeros_like(self.success_rewarded)
-        self.hug_completed = torch.zeros_like(self.success_rewarded)
+        self.fallen = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        self.dropped = torch.zeros_like(self.fallen)
         self.launch_plan = None  # 评估时预采样每个环境的来物，避免策略改变随机数顺序
-        self.residual_mask = torch.ones(23, device=self.device)
-        if self.settings.residual_rl:
-            self.residual_mask[:] = 1.5 if self.settings.active_legs else 0.4
-            for arm in self.catch_controller.motor.arms:
-                self.residual_mask[arm] = 1.0
 
     def _setup_scene(self):
         self.robot = Articulation(make_robot_cfg(self.settings))
@@ -142,37 +128,10 @@ class G1ThrowEnv(DirectRLEnv):
                 filter_prim_paths_expr=["/World/envs/env_.*/ShelfTop", *filters], update_period=0.0,
             ))
             self.scene.sensors["shelf_box_contact"] = self.shelf_sensor
-        self.catch_sensors = []
-        self.foot_sensors = []
-        if self.settings.active_legs:
-            for side in ("left", "right"):
-                sensor = ContactSensor(ContactSensorCfg(
-                    prim_path=f"/World/envs/env_.*/Robot/{side}_ankle_roll_link", update_period=0.0))
-                self.foot_sensors.append(sensor)
-                self.scene.sensors[f"{side}_foot_support"] = sensor
-        if self.settings.controller == "hierarchical":
-            # 每个传感器仅绑定一个刚体，按物体过滤，避免将落地接触误报为接球。
-            for side in ("left", "right"):
-                hand_sensors = []
-                # 身体抱抓允许上臂/前臂承力；掌指依然参与，左右臂独立统计。
-                for part in ("shoulder_yaw", "elbow_pitch", "elbow_roll", "palm",
-                             "zero", "one", "two", "three", "four", "five", "six"):
-                    sensor = ContactSensor(ContactSensorCfg(
-                        prim_path=f"/World/envs/env_.*/Robot/{side}_{part}_link",
-                        filter_prim_paths_expr=[f"/World/envs/env_.*/Object_{s.name}" for s in self.settings.objects],
-                        update_period=0.0,
-                    ))
-                    hand_sensors.append(sensor)
-                    self.scene.sensors[f"{side}_{part}_catch"] = sensor
-                self.catch_sensors.append(hand_sensors)
-            torso_sensor = ContactSensor(ContactSensorCfg(
-                prim_path="/World/envs/env_.*/Robot/torso_link",
-                filter_prim_paths_expr=[f"/World/envs/env_.*/Object_{s.name}" for s in self.settings.objects],
-                update_period=0.0,
-            ))
-            self.scene.sensors["torso_catch"] = torso_sensor
-            self.catch_sensors.append([torso_sensor])
         sim_utils.spawn_ground_plane("/World/ground", sim_utils.GroundPlaneCfg())
+        if self.settings.ground_ruler:
+            from .ground_ruler import spawn_ground_ruler
+            spawn_ground_ruler(self.settings)
         self.scene.clone_environments(copy_from_source=False)
         self.scene.filter_collisions(global_prim_paths=["/World/ground"])
         light = sim_utils.DomeLightCfg(intensity=2500.0)
@@ -206,6 +165,7 @@ class G1ThrowEnv(DirectRLEnv):
         angle = self._uniform(s.azimuth_range, n)
         height = self._uniform(s.launch_height_range, n)
         target_lateral = self._uniform(s.target_lateral_range, n)
+        launch_lateral = self._uniform(s.launch_lateral_range, n) if s.launch_lateral_range is not None else None
         if self.launch_plan is not None:
             # 评估计划按环境索引选取，早跌倒的环境不会改变其他环境的发射样本。
             chosen = self.launch_plan["object"][env_ids]
@@ -214,13 +174,17 @@ class G1ThrowEnv(DirectRLEnv):
             angle = self.launch_plan["angle"][env_ids]
             height = self.launch_plan["height"][env_ids]
             target_lateral = self.launch_plan["target_lateral"][env_ids]
+            if s.launch_lateral_range is not None:
+                launch_lateral = self.launch_plan["launch_lateral"][env_ids]
         # +X 为机器人前方，瞄准点在当前根位置左右随机偏移。
+        offset_x = distance if launch_lateral is not None else distance * torch.cos(angle)
+        offset_y = launch_lateral if launch_lateral is not None else distance * torch.sin(angle)
         position = self.robot.data.root_pos_w[env_ids].clone()
-        position[:, 0] += distance * torch.cos(angle)
-        position[:, 1] += distance * torch.sin(angle)
+        position[:, 0] += offset_x
+        position[:, 1] += offset_y
         position[:, 2] = self.scene.env_origins[env_ids, 2] + height
-        delta_x = -distance * torch.cos(angle)
-        delta_y = target_lateral - distance * torch.sin(angle)
+        delta_x = -offset_x
+        delta_y = target_lateral - offset_y
         target_distance = torch.sqrt(delta_x.square() + delta_y.square()).clamp_min(1e-6)
         dz = s.target_height - height
         g = abs(self.cfg.sim.gravity[2])
@@ -246,12 +210,8 @@ class G1ThrowEnv(DirectRLEnv):
         self.last_object[env_ids] = chosen
         self.launch_speed[env_ids] = speed
         self.throw_count[env_ids] += 1
-        self.success_rewarded[env_ids] = False
         if self.shelf_task is not None:
             self.shelf_task.reset(env_ids)
-        if self.catch_controller is not None:
-            # 连续抛掷即新任务；清除上一物体的成功标志与阶段计时。
-            self.catch_controller.planner.reset(env_ids)
         self.next_throw[env_ids] = (
             self.episode_length_buf[env_ids] * self.step_dt + self._uniform(s.interval_range, n)
             if s.continuous else float("inf")
@@ -262,12 +222,7 @@ class G1ThrowEnv(DirectRLEnv):
         self.actions = actions.clamp(-1.0, 1.0)
         ids = (self.episode_length_buf * self.step_dt >= self.next_throw).nonzero().flatten()
         self._throw(ids)
-        if self.catch_controller is not None:
-            nominal = self.catch_controller.compute()
-            desired = nominal + self.settings.catch_control.residual_scale * self.actions * self.residual_mask
-            limit = self.settings.catch_control.joint_speed * self.step_dt
-            self.joint_target += (desired - self.joint_target).clamp(-limit, limit)
-        elif self.shelf_task is not None:
+        if self.shelf_task is not None:
             # 本环境只接受关节目标，不内置接住后放架的运动策略。
             limits = self.robot.data.soft_joint_pos_limits
             desired = (self.robot.data.default_joint_pos + self.settings.action_scale * self.actions).clamp(
@@ -279,7 +234,7 @@ class G1ThrowEnv(DirectRLEnv):
         # 只停放备用刚体；抛出、接触或掉落的当前物体始终由 PhysX 自由积分。
         from .object_pool import park_inactive_objects
         park_inactive_objects(self.objects, self.scene.env_origins, self.active_object)
-        target = (self.joint_target if self.catch_controller is not None or self.shelf_task is not None else
+        target = (self.joint_target if self.shelf_task is not None else
                   self.robot.data.default_joint_pos + self.settings.action_scale * self.actions)
         limits = self.robot.data.soft_joint_pos_limits
         self.robot.set_joint_position_target(target.clamp(limits[..., 0], limits[..., 1]))
@@ -297,9 +252,6 @@ class G1ThrowEnv(DirectRLEnv):
             data.joint_pos - data.default_joint_pos, data.joint_vel * 0.1,
             self.actions, relative, velocity, kind, self.launch_speed.unsqueeze(-1),
         ), dim=-1)
-        if self.settings.residual_rl:
-            from controllers.residual_rl import observation
-            obs = torch.cat((obs, observation(self, state)), dim=-1)
         if self.shelf_task is not None:
             from .shelf_task import box_geometry
             task = self.shelf_task
@@ -348,57 +300,6 @@ class G1ThrowEnv(DirectRLEnv):
             - s.velocity_penalty * data.root_lin_vel_b.square().sum(-1)
             - s.fall_penalty * self.reset_terminated.float()
         ) * self.step_dt
-        if self.catch_controller is not None:
-            planner = self.catch_controller.planner
-            # 抱持奖励要求躯干与双臂共同接触；success 为本次抛掷锁存指标。
-            reward += 8.0 * (planner.stable_time > 0).float() * self.step_dt
-            self.extras["catch"] = {"phase": planner.phase.clone(), "success": planner.success.clone(),
-                                   "contact": planner.contact.clone(), "stable_time": planner.stable_time.clone(),
-                                   "fallen": self.fallen.clone(), "dropped": self.dropped.clone()}
-            if s.residual_rl:
-                from controllers.residual_rl import task_reward
-                states = torch.stack([obj.data.root_state_w for obj in self.objects], 1)
-                state = states[self.indices, self.active_object.clamp_min(0)]
-                relative = state[:, :3] - data.root_pos_w
-                # 胸前可达区域 gating 排除物体落地后贴近腿部的奖励。
-                active = ((self.active_object >= 0) & (relative[:, 2] > -0.1)
-                          & (relative[:, 2] < 0.7) & (relative[:, :2].norm(dim=-1) < 0.8))
-                palms = data.body_pos_w[:, self.catch_controller.motor.hands]
-                distance = (palms - state[:, None, :3]).norm(dim=-1).mean(-1)
-                proximity = torch.exp(-distance.square() / 0.16)
-                new_success = planner.success & ~self.success_rewarded
-                self.success_rewarded |= planner.success
-                reward = task_reward(active, (-data.projected_gravity_b[:, 2]).clamp(0, 1),
-                                     proximity, planner.contact,
-                                     (state[:, 7:10] - data.root_lin_vel_w).norm(dim=-1),
-                                     planner.stable_time, new_success, self.reset_terminated,
-                                     self.actions, self.actions - self.previous_actions, self.step_dt)
-                if s.active_legs and not s.strict_hug:
-                    from controllers.residual_rl import stability_reward
-                    motor = self.catch_controller.motor
-                    foot_contact = torch.stack([sensor.data.net_forces_w[:, 0].norm(dim=-1) > 5
-                                                for sensor in self.foot_sensors], -1)
-                    reward += stability_reward((-data.projected_gravity_b[:, 2]).clamp(0, 1),
-                                               data.root_pos_w[:, 2] - self.scene.env_origins[:, 2],
-                                               motor.support_error, data.root_lin_vel_w,
-                                               data.body_lin_vel_w[:, motor.feet], foot_contact,
-                                               planner.stable_time, self.reset_terminated,
-                                               self.reset_time_outs, self.step_dt)
-                if s.strict_hug:
-                    from controllers.hug_reward import hug_reward
-                    relative_velocity = state[:, 7:10] - data.root_lin_vel_w
-                    reward = hug_reward(
-                        self.active_object >= 0, proximity, planner.contact,
-                        (-data.projected_gravity_b[:, 2]).clamp(0, 1), planner.stable_time,
-                        s.required_hold_seconds, relative_velocity.norm(dim=-1), relative_velocity[:, 2],
-                        self.catch_controller.motor.support_error, self.actions,
-                        self.actions - self.previous_actions,
-                        self.episode_length_buf * self.step_dt - s.first_throw_delay,
-                        self.dropped, self.fallen, self.reset_time_outs, self.step_dt)
-                    self.hug_completed = (self.reset_time_outs & ~self.reset_terminated
-                                          & (planner.stable_time >= s.required_hold_seconds))
-                    self.extras["catch"]["success"] = self.hug_completed.clone()
-                self.extras["log"] = {}
         return reward
 
     def _get_dones(self):
@@ -429,17 +330,6 @@ class G1ThrowEnv(DirectRLEnv):
             # 成功或物理失败优先；成功步不同时标记 timeout。
             timeout = (self.episode_length_buf >= self.max_episode_length - 1) & ~terminated
             return terminated, timeout
-        if self.settings.strict_hug:
-            from controllers.hug_reward import dropped_object
-            from controllers.whole_body import rotate_yaw
-            states = torch.stack([o.data.root_state_w for o in self.objects], 1)
-            state = states[self.indices, self.active_object.clamp_min(0)]
-            w, x, y, z = self.robot.data.root_quat_w.unbind(-1)
-            yaw = torch.atan2(2 * (w * z + x * y), 1 - 2 * (y.square() + z.square()))
-            relative = rotate_yaw(state[:, :3] - self.robot.data.root_pos_w, yaw, inverse=True)
-            self.dropped.copy_(dropped_object(self.active_object >= 0,
-                               state[:, 2] - self.scene.env_origins[:, 2], relative,
-                               self.settings.drop_height))
         return fallen | self.dropped, self.episode_length_buf >= self.max_episode_length - 1
 
     def _reset_idx(self, env_ids):
@@ -453,13 +343,6 @@ class G1ThrowEnv(DirectRLEnv):
                 "Episode/drop": self.dropped[env_ids].float().mean(),
             }
             self.shelf_task.reset(env_ids)
-        if self.settings.residual_rl and len(env_ids):
-            self.extras["log"] = {
-                "Episode/catch_success": (self.hug_completed if self.settings.strict_hug else
-                                          self.catch_controller.planner.success)[env_ids].float().mean(),
-                "Episode/fall": self.fallen[env_ids].float().mean(),
-                "Episode/drop": self.dropped[env_ids].float().mean(),
-            }
         super()._reset_idx(env_ids)
         state = self.robot.data.default_root_state[env_ids].clone()
         state[:, :3] += self.scene.env_origins[env_ids]
@@ -470,12 +353,8 @@ class G1ThrowEnv(DirectRLEnv):
         )
         self.actions[env_ids] = 0
         self.previous_actions[env_ids] = 0
-        self.success_rewarded[env_ids] = False
         self.fallen[env_ids] = False
         self.dropped[env_ids] = False
-        self.hug_completed[env_ids] = False
-        if self.catch_controller is not None:
-            self.catch_controller.reset(env_ids)
         self.joint_target[env_ids] = self.robot.data.default_joint_pos[env_ids]
         self.active_object[env_ids] = -1
         # 保留 last_object，让跨回合的相邻抛掷也不重复物体种类。

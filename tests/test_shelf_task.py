@@ -6,6 +6,8 @@ import unittest
 import torch
 
 from env_configs.catch_and_place import CONFIG
+from env_configs.common import Settings
+from g1_throw.launch import launch_dataset
 from g1_throw.shelf_task import ShelfPhase, ShelfTask, box_geometry
 
 
@@ -165,18 +167,53 @@ class ShelfTaskTests(unittest.TestCase):
 
     def test_config_rejects_incompatible_tasks_and_geometry(self):
         CONFIG.validate()
-        for name, value in (("continuous", True), ("strict_hug", True), ("controller", "hierarchical")):
-            cfg = deepcopy(CONFIG)
-            setattr(cfg, name, value)
-            with self.assertRaises(ValueError):
-                cfg.validate()
+        cfg = deepcopy(CONFIG)
+        cfg.continuous = True
+        with self.assertRaises(ValueError):
+            cfg.validate()
         for name, value in (("size", (.3, .3, .04)), ("position", (.45, .65, .2)),
-                            ("position", (4., .65, .75)), ("settle_seconds", 12.),
+                            ("position", (CONFIG.env_spacing, .65, .75)), ("settle_seconds", 12.),
                             ("support_weight_fraction", 1.2), ("linear_speed", float("nan"))):
             cfg = deepcopy(CONFIG)
             setattr(cfg.shelf, name, value)
             with self.assertRaises(ValueError):
                 cfg.validate()
+
+    def test_long_throws_need_reachable_ballistics_and_room(self):
+        for name, value in (("speed_range", (6., 8.)), ("env_spacing", 8.), ("env_spacing", 11.)):
+            cfg = deepcopy(CONFIG)
+            setattr(cfg, name, value)
+            with self.assertRaises(ValueError):
+                cfg.validate()
+        cfg = deepcopy(CONFIG)
+        cfg.shelf.escape_distance = 5.01  # X=5m 合法，但 (5, ±0.4)m 的实际距离更大。
+        with self.assertRaises(ValueError):
+            cfg.validate()
+
+    def test_launch_lateral_config_rejects_invalid_ranges(self):
+        for bounds in ((.4, -.4), (float("nan"), .4), (-.4, float("inf"))):
+            cfg = deepcopy(CONFIG)
+            cfg.launch_lateral_range = bounds
+            with self.assertRaisesRegex(ValueError, "launch_lateral_range"):
+                cfg.validate()
+        cfg = deepcopy(CONFIG)
+        cfg.launch_lateral_range = (-.4, -.4)
+        cfg.validate()  # 固定偏移也可以用于复现边界案例。
+
+    def test_fixed_launch_plan_preserves_lateral_samples(self):
+        plan = launch_dataset(CONFIG, 128, seed=2026)
+        torch.rand(37)  # 模拟策略/重置消耗全局随机数。
+        repeated = launch_dataset(CONFIG, 128, seed=2026)
+        for key in plan:
+            torch.testing.assert_close(plan[key], repeated[key], atol=0, rtol=0)
+        x, y = plan["distance"], plan["launch_lateral"]
+        self.assertTrue(((3. <= x) & (x <= 5.)).all())
+        self.assertTrue(((-.4 <= y) & (y <= .4)).all())
+        # 远近两段都要有来自左右两侧的发射样本。
+        for mask in (x < 4., x >= 4.):
+            self.assertTrue((y[mask] < -.2).any())
+            self.assertTrue((y[mask] > .2).any())
+        self.assertNotIn("launch_lateral", launch_dataset(Settings(), 8, seed=2026))
 
 
 if __name__ == "__main__":

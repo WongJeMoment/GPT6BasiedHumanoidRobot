@@ -1,6 +1,5 @@
 """共享参数。长度 m、速度 m/s、质量 kg、时间 s。无需导入 Isaac Sim。"""
 from dataclasses import dataclass, field
-from controllers.config import CatchControlCfg
 
 
 @dataclass
@@ -57,26 +56,24 @@ class ShelfCfg:
             raise ValueError("架子超出当前并行环境的空间范围")
         if math.hypot(*self.position[:2]) + max(self.size[:2]) / 2 >= self.escape_distance:
             raise ValueError("架子必须位于物体有效活动范围内")
+        if self.escape_distance <= settings.max_launch_distance:
+            raise ValueError("物体活动范围必须大于最大抛掷距离，避免刚投放就被判为越界")
 
 
 @dataclass
 class Settings:
     shelf_task: bool = False  # 独立的接箱再放架任务；不自动生成任何放置动作
     shelf: ShelfCfg = field(default_factory=ShelfCfg)
-    strict_hug: bool = False  # 掉物立即失败；成功只在回合末持续抱持时确认
-    drop_height: float = 0.50  # 物体中心低于此离地高度，已离开抱抓区，立即重新投放
-    required_hold_seconds: float = 2.0
-    active_legs: bool = False  # 主动重心调整与持续站立训练；旧模型配置保留原行为
-    residual_rl: bool = False  # 扩展控制状态观测及接物密集奖励；旧检查点不可混用
-    controller: str = "joint"  # joint：原关节动作；hierarchical：分层抱接 + PPO 残差
-    catch_control: CatchControlCfg = field(default_factory=CatchControlCfg)
     num_envs: int = 64
     env_spacing: float = 8.0
+    ground_ruler: bool = False  # 地面视觉标尺：小格 1 dm；不参与碰撞
     episode_seconds: float = 20.0
     physics_dt: float = 1 / 120
     decimation: int = 2
     speed_range: tuple[float, float] = (6.0, 8.0)
     distance_range: tuple[float, float] = (1.0, 1.4)
+    # None：按距离/方位角采样；设置后 distance_range 为 X 偏移，本参数独立采样 Y（m）。
+    launch_lateral_range: tuple[float, float] | None = None
     launch_height_range: tuple[float, float] = (1.05, 1.20)
     azimuth_range: tuple[float, float] = (-0.12, 0.12)
     target_height: float = 1.0
@@ -100,22 +97,15 @@ class Settings:
         ObjectSpec("can", "cylinder", (0.16, 0.40), 0.60, (0.95, 0.65, 0.12)),
     ])
 
+    @property
+    def max_launch_distance(self):
+        import math
+        lateral = 0.0 if self.launch_lateral_range is None else max(map(abs, self.launch_lateral_range))
+        return math.hypot(self.distance_range[1], lateral)
+
     def validate(self):
         import math
         import re
-        if self.controller not in ("joint", "hierarchical"):
-            raise ValueError("controller 必须为 joint 或 hierarchical")
-        if self.residual_rl and self.controller != "hierarchical":
-            raise ValueError("residual_rl 需要 hierarchical 控制器")
-        if self.active_legs and not self.residual_rl:
-            raise ValueError("active_legs 需要 residual_rl 的支撑状态观测")
-        self.catch_control.validate()
-        if self.strict_hug and (not self.active_legs or self.continuous):
-            raise ValueError("strict_hug 需要 active_legs 与单次抛掷回合")
-        if self.strict_hug and not (0 < self.drop_height < self.target_height
-                                   and math.isfinite(self.required_hold_seconds)
-                                   and 0 < self.required_hold_seconds < self.episode_seconds - self.first_throw_delay):
-            raise ValueError("drop_height 必须低于目标高度，抱持时长必须为正")
         for name in ("speed_range", "distance_range", "launch_height_range", "interval_range"):
             low, high = getattr(self, name)
             if not (0 < low <= high and math.isfinite(high)):
@@ -144,11 +134,15 @@ class Settings:
         low, high = self.target_lateral_range
         if not (math.isfinite(low) and math.isfinite(high) and low <= high):
             raise ValueError("target_lateral_range 必须为有限数且最小值 <= 最大值")
-        if self.env_spacing < 2 * self.distance_range[1] + 1:
+        if self.launch_lateral_range is not None:
+            launch_low, launch_high = self.launch_lateral_range
+            if not (math.isfinite(launch_low) and math.isfinite(launch_high) and launch_low <= launch_high):
+                raise ValueError("launch_lateral_range 必须为有限数且最小值 <= 最大值")
+        if self.env_spacing < 2 * self.max_launch_distance + 1:
             raise ValueError("env_spacing 太小，至少为 2 * 最大抛掷距离 + 1")
         if self.shelf_task:
-            if self.continuous or self.strict_hug or self.controller != "joint":
-                raise ValueError("放架任务需要单次抛掷与 joint 动作接口，不能使用旧抱持终点/控制器")
+            if self.continuous:
+                raise ValueError("放架任务需要单次抛掷回合，不能启用 continuous")
             if len(self.objects) != 1 or self.objects[0].shape != "cuboid":
                 raise ValueError("放架任务需要且仅需要一个 cuboid 箱体")
             if not math.isfinite(self.objects[0].mass) or not math.isfinite(self.action_scale) or self.action_scale <= 0:
@@ -157,6 +151,9 @@ class Settings:
         # 保证最慢速度也可覆盖所有发射点到标称目标高度的弹道。
         v2 = self.speed_range[0] ** 2
         d = self.distance_range[1] + max(abs(low), abs(high))
+        if self.launch_lateral_range is not None:
+            lateral_distance = max(abs(high - launch_low), abs(low - launch_high))
+            d = math.hypot(self.distance_range[1], lateral_distance)
         dz = self.target_height - self.launch_height_range[0]
         if v2 * v2 - 9.81 * (9.81 * d * d + 2 * dz * v2) < 0:
             raise ValueError("速度太低，无法到达目标；提高 speed_range 或减小距离/目标高度")

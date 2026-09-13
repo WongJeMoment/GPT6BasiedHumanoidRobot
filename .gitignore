@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
 logs/
+trained_models/
+*.pt
 .pytest_cache/
 assets/usd_cache/

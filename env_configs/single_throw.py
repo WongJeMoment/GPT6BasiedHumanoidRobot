@@ -2,7 +2,6 @@
 from env_configs.common import ObjectSpec, Settings
 
 CONFIG = Settings(
-    controller="hierarchical",  # 高层弹道/阶段规划 + 双臂与下肢反馈控制
     continuous=False,
     episode_seconds=8.0,
     speed_range=(6.0, 8.0),       # 初速度 m/s

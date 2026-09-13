@@ -59,8 +59,8 @@ def make_robot_cfg(settings):
     arms = cfg.actuators["arms"]
     arms.joint_names_expr = [".*_shoulder_.*", ".*_elbow_.*"]
     arms.armature = {".*_shoulder_.*": 0.01, ".*_elbow_.*": 0.01}
-    if settings.controller == "hierarchical" or settings.shelf_task:
-        # 来球飞行仅约 0.2 s，复位即采用预备抱接姿态，避免从垂臂开始追球。
+    if settings.shelf_task:
+        # 接箱任务从预备抱接姿态复位；后续运动由外部动作驱动。
         cfg.init_state.joint_pos.update({
             "left_shoulder_pitch_joint": -0.85,
             "right_shoulder_pitch_joint": -0.85,

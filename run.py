@@ -1,83 +1,47 @@
-"""运行入口：先启动 Isaac Sim，再导入训练环境。"""
+"""环境入口：预览场景或运行 PhysX 检查，不加载控制策略或训练器。"""
 import argparse
 import itertools
 import time
-from pathlib import Path
 
 from isaaclab.app import AppLauncher
+from g1_throw.config_loader import load_settings
 
-parser = argparse.ArgumentParser(description="G1 黑色零自由度手 / 随机物体抛掷")
-parser.add_argument("--config", default="env_configs/single_throw.py")
-parser.add_argument("--mode", choices=("preview", "train", "play", "smoke", "eval"), default="preview")
+parser = argparse.ArgumentParser(description="G1 抛物与接箱放架环境")
+parser.add_argument("--config", default="env_configs/catch_and_place.py")
+parser.add_argument("--mode", choices=("preview", "smoke"), default="preview")
 parser.add_argument("--num_envs", type=int)
-parser.add_argument("--steps", type=int, default=None, help="运行步数；0 为持续运行，预览/回放默认持续运行")
-parser.add_argument("--iterations", type=int, default=1500)
+parser.add_argument("--steps", type=int, default=None, help="运行步数；0 持续运行，可视化预览默认持续运行")
 parser.add_argument("--seed", type=int, default=42)
-parser.add_argument("--checkpoint")
-parser.add_argument("--warm_start", help="迁移旧模型到主动下肢策略，不恢复优化器")
-parser.add_argument("--init_policy", help="同结构策略迁移：只加载动作网络，重新学习新奖励的价值函数")
-parser.add_argument("--episode_seconds", type=float, help="覆盖回合时长，用于同条件长时评估")
-parser.add_argument("--log_dir", help="训练输出目录；默认以时间命名")
-parser.add_argument("--eval_episodes", type=int, default=96)
-parser.add_argument("--eval_seed", type=int, default=2026)
-parser.add_argument("--eval_output", help="评估报告 JSON 路径")
-parser.add_argument("--compare_baseline", action="store_true", help="加载模型评估前先评估零残差")
-parser.add_argument("--controller", choices=("joint", "hierarchical"), help="覆盖场景中的控制方式")
+parser.add_argument("--episode_seconds", type=float, help="覆盖环境回合时长")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 if args.steps is None:
-    args.steps = 0 if args.mode in ("preview", "play") and not args.headless else 600
+    args.steps = 0 if args.mode == "preview" and not args.headless else 600
 if args.steps < 0:
     parser.error("--steps 必须 >= 0")
-if args.eval_episodes < 1 or args.iterations < 1:
-    parser.error("eval_episodes 和 iterations 必须为正")
+settings = load_settings(args.config)
+if args.num_envs is not None:
+    settings.num_envs = args.num_envs
+elif args.mode == "preview":
+    settings.num_envs = 1
+if args.episode_seconds is not None:
+    settings.episode_seconds = args.episode_seconds
+settings.validate()
+launcher = AppLauncher(args)
+app = launcher.app
 
 
 def simulation_steps(env):
-    """可视化按实时速度运行，直到关闭窗口或达到显式指定的步数。"""
+    """可视化按实时速度运行，直到关闭窗口或达到指定步数。"""
     for index in itertools.count():
         if not app.is_running() or (args.steps and index >= args.steps):
             return
         start = time.monotonic()
         yield index
-        if env.sim.has_gui() and args.mode in ("preview", "play"):
+        if env.sim.has_gui() and args.mode == "preview":
             time.sleep(max(0.0, env.step_dt - (time.monotonic() - start)))
 
-from g1_throw.config_loader import load_settings
 
-settings = load_settings(args.config)
-if args.num_envs is not None:
-    settings.num_envs = args.num_envs
-if args.controller is not None:
-    settings.controller = args.controller
-if args.episode_seconds is not None:
-    settings.episode_seconds = args.episode_seconds
-if args.warm_start and (args.checkpoint or args.mode != "train" or not settings.active_legs):
-    parser.error("--warm_start 仅用于主动下肢训练，且不可同时指定 --checkpoint")
-if args.init_policy and (args.mode != "train" or args.checkpoint or args.warm_start):
-    parser.error("--init_policy 仅用于训练，不能与 --checkpoint/--warm_start 同用")
-settings.validate()
-if args.mode == "play" and not args.checkpoint:
-    parser.error("--mode play 需要 --checkpoint 路径")
-if args.mode == "eval" and (settings.continuous or (settings.controller != "hierarchical" and not settings.shelf_task)):
-    parser.error("--mode eval 需要单次抛掷的 hierarchical 或 catch_and_place 配置")
-if args.checkpoint:
-    import json
-    metadata_path = Path(args.checkpoint).expanduser().resolve().parent / "resolved_settings.json"
-    if metadata_path.is_file():
-        saved = json.loads(metadata_path.read_text())
-        if saved.get("residual_rl", False) != settings.residual_rl:
-            parser.error("检查点的观测结构与配置不一致；身体抱抓 RL 模型请使用 env_configs/rl_catch.py")
-        if saved.get("controller", "joint") != settings.controller:
-            parser.error("检查点与当前 controller 不一致，动作含义不能混用")
-        if saved.get("active_legs", False) != settings.active_legs:
-            parser.error("检查点的下肢观测结构不一致，请使用对应配置或通过 --warm_start 迁移")
-        if saved.get("shelf_task", False) != settings.shelf_task:
-            parser.error("检查点与放架任务的观测/动作定义不同，需要使用对应环境重新训练")
-        if args.mode == "train" and saved.get("strict_hug", False) != settings.strict_hug:
-            parser.error("奖励任务已改变，请用 --init_policy 迁移动作网络，不能恢复旧任务优化器")
-launcher = AppLauncher(args)
-app = launcher.app
 env = None
 exit_code = 0
 try:
@@ -85,158 +49,32 @@ try:
     from g1_throw.environment import G1ThrowEnv, make_env_cfg
 
     env = G1ThrowEnv(make_env_cfg(settings, args.device or "cuda:0", args.seed))
-    print(f"G1: {env.robot.num_joints} 个身体关节；手部 0 自由度；物体 {[o.name for o in settings.objects]}")
-    print(f"控制方式: {settings.controller}", flush=True)
-    if args.mode == "eval" and not args.checkpoint:
-        import json
-        from g1_throw.evaluation import evaluate
-        report = {"baseline": evaluate(env, None, args.eval_episodes, args.eval_seed)}
-        print("EVAL BASELINE:", {k: v for k, v in report["baseline"].items() if k != "results"}, flush=True)
-        if args.eval_output:
-            Path(args.eval_output).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.eval_output).write_text(json.dumps(report, indent=2))
-    elif args.mode in ("train", "play", "eval"):
-        from datetime import datetime
-        import shutil
-        from rsl_rl.runners import OnPolicyRunner
-        from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
-        from g1_throw.ppo import PPORunnerCfg
-
-        from dataclasses import asdict
-        import json
-        log_dir = None
-        if args.mode == "train":
-            log_dir = Path(args.log_dir) if args.log_dir else Path("logs") / Path(args.config).stem / datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_dir.mkdir(parents=True, exist_ok=False)
-            shutil.copy2(args.config, log_dir / "environment_config.py")
-            (log_dir / "resolved_settings.json").write_text(json.dumps(asdict(settings), indent=2))
-            # 记录当时的完整控制代码，防止后续调参让旧模型不可复现。
-            for folder in ("controllers", "env_configs", "g1_throw"):
-                shutil.copytree(folder, log_dir / "source" / folder, ignore=shutil.ignore_patterns("__pycache__"))
-            shutil.copy2(__file__, log_dir / "source" / "run.py")
-            print(f"训练输出: {log_dir.resolve()}", flush=True)
-        agent_cfg = PPORunnerCfg()
-        agent_cfg.seed = args.seed
-        if settings.residual_rl:
-            agent_cfg.num_steps_per_env = 32
-            agent_cfg.save_interval = 50
-            agent_cfg.policy.init_noise_std = 0.35
-            agent_cfg.algorithm.gamma = 0.995
-            agent_cfg.algorithm.entropy_coef = 0.002
-        if settings.strict_hug:
-            # 身体抱持对小幅接触变化敏感；新奖励迁移时避免大步更新破坏已有动作。
-            agent_cfg.algorithm.learning_rate = 3e-5
-            agent_cfg.algorithm.schedule = "fixed"
-            agent_cfg.algorithm.entropy_coef = 0.0
-            agent_cfg.algorithm.gamma = 0.999  # 让 8 秒终点抱稳回报仍能影响早期动作
-        wrapped = RslRlVecEnvWrapper(env, clip_actions=1.0)
-        runner = OnPolicyRunner(wrapped, agent_cfg.to_dict(), log_dir=str(log_dir) if log_dir else None, device=env.device)
-        if log_dir:
-            (log_dir / "agent_config.json").write_text(json.dumps(agent_cfg.to_dict(), indent=2))
-        if args.checkpoint:
-            runner.load(args.checkpoint)
-        elif args.init_policy:
-            # 新奖励与旧价值估计不兼容；保留动作与观测归一化，价值网络和优化器从头学习。
-            source = torch.load(args.init_policy, map_location=env.device, weights_only=False)["model_state_dict"]
-            state = runner.alg.policy.state_dict()
-            for key in state:
-                if key.startswith("actor.") or key.startswith("actor_obs_normalizer.") or key in ("std", "log_std"):
-                    if key not in source or source[key].shape != state[key].shape:
-                        raise ValueError(f"策略迁移结构不一致: {key}")
-                    state[key] = source[key]
-            runner.alg.policy.load_state_dict(state)
-            if settings.strict_hug:
-                with torch.no_grad():
-                    runner.alg.policy.std.fill_(0.04)
-            runner.logger_type = agent_cfg.logger
-            runner.save(str(log_dir / "initial_policy.pt"))
-            print(f"本地策略迁移: {args.init_policy}；价值网络与优化器重新初始化", flush=True)
-        elif args.warm_start:
-            from g1_throw.warm_start import warm_start
-            warm_start(runner, args.warm_start, env)
-            # RSL-RL 直到 learn 才初始化 logger_type，预训练快照需要先指定它。
-            runner.logger_type = agent_cfg.logger
-            runner.save(str(log_dir / "warm_start.pt"))
-        elif settings.residual_rl:
-            # 初始均值接近零修正，从现有控制器附近开始探索。
-            final_layer = [m for m in runner.alg.policy.actor.modules() if isinstance(m, torch.nn.Linear)][-1]
-            with torch.no_grad():
-                final_layer.weight.mul_(0.01)
-                final_layer.bias.zero_()
-        if args.mode == "train":
-            runner.learn(num_learning_iterations=args.iterations, init_at_random_ep_len=False)
-        elif args.mode == "eval":
-            from g1_throw.evaluation import evaluate
-            report = {}
-            if args.compare_baseline:
-                report["baseline"] = evaluate(env, None, args.eval_episodes, args.eval_seed)
-            report["policy"] = evaluate(env, runner.get_inference_policy(device=env.device), args.eval_episodes, args.eval_seed)
-            report["checkpoint"] = str(Path(args.checkpoint).resolve())
-            for label in ("baseline", "policy"):
-                if label in report:
-                    print(f"EVAL {label}:", {k: v for k, v in report[label].items() if k != "results"}, flush=True)
-            if args.eval_output:
-                Path(args.eval_output).parent.mkdir(parents=True, exist_ok=True)
-                Path(args.eval_output).write_text(json.dumps(report, indent=2))
-        else:
-            policy = runner.get_inference_policy(device=env.device)
-            obs = wrapped.get_observations()
-            for _ in simulation_steps(env):
-                with torch.inference_mode():
-                    obs, _, _, _ = wrapped.step(policy(obs))
+    print(f"G1: {env.robot.num_joints} 个身体关节；手部 0 自由度；物体 {[o.name for o in settings.objects]}", flush=True)
+    env.reset()
+    if args.mode == "smoke":
+        from g1_throw.checks import check_launch_and_partial_reset, check_shelf_task
+        check_launch_and_partial_reset(env)
+        check_shelf_task(env)
+        env.reset()  # 清除检查夹具，下面重新统计实际运行。
     else:
-        obs, _ = env.reset()
-        if args.mode == "smoke":
-            from g1_throw.checks import check_launch_and_partial_reset, check_drop_reset, check_shelf_task
-            check_launch_and_partial_reset(env)
-            check_drop_reset(env)
-            check_shelf_task(env)
-        seen_throws = 0
-        caught = 0
-        catch_latched = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-        visited_phases = set()
-        contact_steps = torch.zeros(3, dtype=torch.long, device=env.device)
-        triple_contact_steps = 0
-        if args.mode == "preview":
-            print("预览已启动：关闭窗口或按 Ctrl+C 退出。", flush=True)
-        for _ in simulation_steps(env):
-            with torch.inference_mode():
-                before = env.throw_count.clone()
-                obs, reward, terminated, truncated, _ = env.step(torch.zeros_like(env.actions))
-                seen_throws += int((env.throw_count > before).sum())
-                if env.catch_controller is not None:
-                    metrics = env.extras.get("catch", {})
-                    success = metrics.get("success", torch.zeros_like(catch_latched))
-                    catch_latched[env.throw_count > before] = False
-                    caught += int((success & ~catch_latched).sum())
-                    catch_latched = success.clone()
-                    catch_latched[terminated | truncated] = False
-                    visited_phases.update(metrics["phase"].tolist())
-                    contact_steps += metrics["contact"].sum(0)
-                    triple_contact_steps += int(metrics["contact"].all(-1).sum())
-                if settings.shelf_task:
-                    # 成功时立即终止，每次只计一个完整的接箱放架回合。
-                    caught += int(env.extras["shelf"]["success"].sum())
-                if args.mode == "smoke":
-                    assert obs["policy"].shape == (env.num_envs, env.cfg.observation_space)
-                    assert torch.isfinite(obs["policy"]).all() and torch.isfinite(reward).all()
-                    if env.catch_controller is not None:
-                        target = env.joint_target
-                        limits = env.robot.data.soft_joint_pos_limits
-                        assert torch.isfinite(target).all(), "控制器生成了非有限关节目标"
-                        # 实际发送前还会裁剪；这里检查名义控制器本身没有越过软限位。
-                        nominal = env.catch_controller.motor.target
-                        assert (nominal >= limits[..., 0] - 1e-5).all()
-                        assert (nominal <= limits[..., 1] + 1e-5).all()
-        if args.mode == "smoke":
-            assert seen_throws > 0, "没有发生抛掷：增加 --steps 或检查机器人是否过早跌倒"
-            print(f"SMOKE PASSED: {seen_throws} 次抛掷，观测/奖励有限，手部 0 DOF", flush=True)
-        if env.catch_controller is not None:
-            from controllers.planner import Phase
-            print(f"接物统计: 抛掷 {seen_throws}，成功抱稳 {caught}，阶段 {[Phase(p).name for p in sorted(visited_phases)]}", flush=True)
-            print(f"身体抱抓接触步数: 左臂/右臂/躯干 {contact_steps.tolist()}，三方共同接触 {triple_contact_steps}", flush=True)
-        if settings.shelf_task:
-            print(f"接箱放架统计: 抛掷 {seen_throws}，完整任务成功 {caught}；当前运行不包含 GPT 规划", flush=True)
+        print("环境预览：发送零动作，不含自动接箱/放架策略；关闭窗口或按 Ctrl+C 退出。", flush=True)
+    seen_throws = 0
+    completed = 0
+    for _ in simulation_steps(env):
+        with torch.inference_mode():
+            before = env.throw_count.clone()
+            obs, reward, terminated, truncated, extras = env.step(torch.zeros_like(env.actions))
+            seen_throws += int((env.throw_count > before).sum())
+            if settings.shelf_task:
+                completed += int(extras["shelf"]["success"].sum())
+            if args.mode == "smoke":
+                assert obs["policy"].shape == (env.num_envs, env.cfg.observation_space)
+                assert torch.isfinite(obs["policy"]).all() and torch.isfinite(reward).all()
+    if args.mode == "smoke":
+        assert seen_throws > 0, "没有发生抛掷：增加 --steps 或检查机器人是否过早跌倒"
+        print(f"SMOKE PASSED: {seen_throws} 次抛掷，观测/奖励有限，手部 0 DOF", flush=True)
+    if settings.shelf_task:
+        print(f"接箱放架统计: 抛掷 {seen_throws}，完整任务成功 {completed}；当前运行仅发送零动作", flush=True)
 except KeyboardInterrupt:
     pass
 except Exception:
@@ -247,7 +85,7 @@ finally:
     import sys
     if env is not None:
         env.close()
-    # Kit 快速关闭可能直接退出进程；先刷新日志并显式保留失败退出码。
+    # Kit 快速关闭可能直接退出进程；先刷新日志并保留失败退出码。
     sys.stdout.flush()
     sys.stderr.flush()
     if exit_code:
