@@ -181,6 +181,10 @@ def check_shelf_task(env):
             assert metrics["supported"][0] and not metrics["robot_touch"][0]
             assert metrics["settle_time"][0] >= shelf_cfg.settle_seconds and reward[0] > 90
             assert not task.caught[0] and not task.success[0] and env.active_object[0] == -1
+            if env.terminal_status_enabled:
+                status = extras["terminal"][0]
+                assert status["success"] and status["caught"] and status["supported"]
+                assert status["active"] == 0 and not status["robot_touch"]
             assert torch.isfinite(obs["policy"]).all()
             if env.num_envs > 1:
                 assert not (terminated[1:] | truncated[1:]).any(), "放架成功误重置其他环境"
@@ -198,6 +202,11 @@ def check_shelf_task(env):
     _, reward, terminated, _, extras = env.step(torch.zeros_like(env.actions))
     assert terminated[0] and extras["shelf"]["dropped"][0] and not extras["shelf"]["success"][0]
     assert reward[0] < -59 and env.active_object[0] == -1
+    if env.terminal_status_enabled:
+        status = extras["terminal"][0]
+        assert status["dropped"] and status["terminated"] and status["active"] == 0
+        assert status["bottom"] <= shelf_cfg.ground_tolerance
+        assert status["box"][2] > 0, "终端快照错误地记录了复位后停放到地下的箱体"
     for _ in range(int(env.settings.first_throw_delay / env.step_dt) + 2):
         env.step(torch.zeros_like(env.actions))
     assert env.active_object[0] == 0, "掉落重置后未重新投放箱体"

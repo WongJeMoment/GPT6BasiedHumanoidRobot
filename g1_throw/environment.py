@@ -77,6 +77,7 @@ class G1ThrowEnv(DirectRLEnv):
         self.fallen = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self.dropped = torch.zeros_like(self.fallen)
         self.launch_plan = None  # 评估时预采样每个环境的来物，避免策略改变随机数顺序
+        self.terminal_status_enabled = False  # 运行入口按需开启，外部动作接口不增加快照开销
 
     def _setup_scene(self):
         self.robot = Articulation(make_robot_cfg(self.settings))
@@ -276,6 +277,10 @@ class G1ThrowEnv(DirectRLEnv):
         return {"policy": obs}
 
     def _get_rewards(self):
+        if self.terminal_status_enabled:
+            from .terminal_status import capture_terminal_state
+            # DirectRLEnv 在计算奖励后自动复位；必须在此保留结束步的实际状态。
+            self.extras["terminal"] = capture_terminal_state(self)
         s, data = self.settings, self.robot.data
         if self.shelf_task is not None:
             task = self.shelf_task
