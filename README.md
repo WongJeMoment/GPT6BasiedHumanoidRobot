@@ -107,6 +107,10 @@ finally:
 
 环境只执行输入动作并判断任务结果，没有内置抓取轨迹、规划器或学习算法。
 
+## MuJoCo 版本
+
+对应的 MuJoCo 环境放在 [`mujoco/environment/`](mujoco/environment/)，复用当前场景参数、任务判据和终端按 `s` 保存 TXT 的功能，支持现有三个场景。运行 `bash mujoco/preview.sh` 打开默认接箱放架场景；安装、接口和物理后端差异见 [MuJoCo 使用说明](mujoco/README.md)。
+
 ## 场景与参数
 
 | 配置 | 用途 |

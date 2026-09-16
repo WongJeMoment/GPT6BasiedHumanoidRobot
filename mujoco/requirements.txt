@@ -1,0 +1,4 @@
+mujoco==3.10.0
+numpy>=1.26,<3
+torch>=2.4
+trimesh==4.5.1
